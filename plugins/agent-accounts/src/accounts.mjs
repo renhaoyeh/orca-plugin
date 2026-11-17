@@ -119,7 +119,7 @@ export async function createLoginTerminal(workspaceId, provider, options = {}) {
     "if ($LASTEXITCODE -ne 0) { throw 'Sign-in did not complete. Review the error above before retrying.' }",
     "Write-Host 'After signing in, return to the accounts panel and click Refresh.'",
   ].join('\n'))
-  return createTerminal(workspaceId, { label: 'Sign in', provider }, { ...options, command })
+  return createTerminal(workspaceId, { label: 'Sign in', provider }, { ...options, command, title: `${provider === 'claude' ? 'Claude' : 'Codex'} · Sign in` })
 }
 
 export function terminalCommand(home, options = {}) {
@@ -154,7 +154,9 @@ export async function createTerminal(workspaceId, account, options = {}) {
   let stdout
   try { ({ stdout } = await run(cli, [
     'terminal', 'create', '--worktree', workspaceId,
-    '--shell', 'powershell.exe', '--title', `${account.provider === 'claude' ? 'Claude' : 'Codex'} · ${account.label}`,
+    '--shell', 'powershell.exe',
+    // Custom titles override session names in both tabs and sidebar agent rows.
+    ...(options.title ? ['--title', options.title] : []),
     '--command', options.command ?? (account.provider === 'claude' ? claudeCommand(account.home) : terminalCommand(account.home)), '--focus', '--json',
   ], {
     windowsHide: true, timeout: 25000, maxBuffer: 1024 * 1024,

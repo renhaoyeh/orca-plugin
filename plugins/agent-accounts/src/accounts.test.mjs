@@ -29,7 +29,9 @@ test('creates a visible terminal tab and focuses it after the user clicks launch
     return { stdout: JSON.stringify({ ok: true, result: { terminal: { handle: 't', orphaned: false } } }) }
   } }
   assert.deepEqual(await createTerminal('identity:demo', { home: 'C:\\account', label: 'Work & stuff' }, options), { terminalId: 't' })
-  assert.deepEqual(call[1].slice(0, 8), ['terminal', 'create', '--worktree', 'identity:demo', '--shell', 'powershell.exe', '--title', 'Codex · Work & stuff'])
+  assert.deepEqual(call[1].slice(0, 6), ['terminal', 'create', '--worktree', 'identity:demo', '--shell', 'powershell.exe'])
+  assert.equal(call[1].includes('--title'), false)
+  assert.equal(call[1].includes('Codex · Work & stuff'), false)
   assert.equal(call[1].includes('--focus'), true)
   assert.equal(call[1].includes('--background'), false)
   assert.equal(call[2].env.ORCA_USER_DATA_PATH, 'C:\\Orca')

@@ -46,6 +46,7 @@ test('add account opens the official login CLI only in an explicitly requested t
     assert.ok(script.includes(`account add --agent ${provider}`))
     assert.ok(script.includes("& 'C:\\Orca''s tools\\orca.exe'"))
     assert.ok(args.includes('--focus'))
+    assert.equal(args[args.indexOf('--title') + 1], `${provider === 'claude' ? 'Claude' : 'Codex'} · Sign in`)
   }
   await assert.rejects(createLoginTerminal('w', 'bad;command', { runtime }))
 })

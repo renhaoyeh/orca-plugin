@@ -24,6 +24,11 @@ fails, a new click is accepted. This protects Codex, Claude and Pi with one shar
 A launch click explicitly focuses the new terminal or Chat tab. The panel itself has no duplicate
 launch buttons, API-key creation form or permissions-help block.
 
+Agent terminals leave their custom title unset so Orca can show the session title in both
+the tab and the sidebar agent row. Before a session title is available, Orca uses its live
+terminal title. Login tabs keep an explicit sign-in label. Existing tabs with a fixed account
+label need their custom title reset once (`orca terminal rename --terminal <handle> --json`).
+
 Use the pencil to rename an entry. Names are stored by account ID and do not change Orca's
 account settings. Leave the name blank to restore its original label. **Remove Pi entry**
 removes only the shortcut, not Pi's settings, credentials or existing tabs.
