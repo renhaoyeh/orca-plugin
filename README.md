@@ -6,6 +6,7 @@ under `plugins/`.
 | Plugin | Description |
 | --- | --- |
 | [Agent Accounts](plugins/agent-accounts/README.md) | Codex/Claude CLI accounts plus a Pi Chat shortcut, launched from Orca's status bar. Windows prototype. |
+| [Git Identity](plugins/git-identity/README.md) | Repository Git identity in the status bar, gh account discovery, local author editing and per-repo push-account binding. Windows prototype. |
 
 ## Development
 
