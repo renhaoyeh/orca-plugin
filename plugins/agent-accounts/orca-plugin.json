@@ -1,0 +1,127 @@
+{
+  "manifestVersion": 2,
+  "id": "codex-accounts",
+  "name": "Agent Accounts",
+  "version": "0.1.0",
+  "description": "Manage Codex and Claude CLI accounts and a Pi Chat shortcut from one panel, with one-click launches in Orca's status bar.",
+  "engines": {
+    "orca": ">=1.4.248"
+  },
+  "execution": "trusted-worker",
+  "pluginApi": 1,
+  "main": "src/worker.ts",
+  "contributes": {
+    "panels": [
+      {
+        "id": "codex-accounts",
+        "title": "Agent Accounts",
+        "icon": "terminal",
+        "entry": "src/panel.tsx",
+        "ui": "components"
+      }
+    ],
+    "commands": [
+      {
+        "id": "accounts.open1",
+        "title": "Agent Accounts: Open entry 1",
+        "when": "workspace"
+      },
+      {
+        "id": "accounts.open2",
+        "title": "Agent Accounts: Open entry 2",
+        "when": "workspace"
+      },
+      {
+        "id": "accounts.open3",
+        "title": "Agent Accounts: Open entry 3",
+        "when": "workspace"
+      },
+      {
+        "id": "accounts.open4",
+        "title": "Agent Accounts: Open entry 4",
+        "when": "workspace"
+      },
+      {
+        "id": "accounts.open5",
+        "title": "Agent Accounts: Open entry 5",
+        "when": "workspace"
+      },
+      {
+        "id": "accounts.open6",
+        "title": "Agent Accounts: Open entry 6",
+        "when": "workspace"
+      },
+      {
+        "id": "accounts.open7",
+        "title": "Agent Accounts: Open entry 7",
+        "when": "workspace"
+      },
+      {
+        "id": "accounts.open8",
+        "title": "Agent Accounts: Open entry 8",
+        "when": "workspace"
+      }
+    ],
+    "statusBarItems": [
+      {
+        "id": "account-1",
+        "text": "",
+        "command": "accounts.open1"
+      },
+      {
+        "id": "account-2",
+        "text": "",
+        "command": "accounts.open2"
+      },
+      {
+        "id": "account-3",
+        "text": "",
+        "command": "accounts.open3"
+      },
+      {
+        "id": "account-4",
+        "text": "",
+        "command": "accounts.open4"
+      },
+      {
+        "id": "account-5",
+        "text": "",
+        "command": "accounts.open5"
+      },
+      {
+        "id": "account-6",
+        "text": "",
+        "command": "accounts.open6"
+      },
+      {
+        "id": "account-7",
+        "text": "",
+        "command": "accounts.open7"
+      },
+      {
+        "id": "account-8",
+        "text": "",
+        "command": "accounts.open8"
+      }
+    ],
+    "events": [
+      {
+        "on": "workspace.changed"
+      }
+    ]
+  },
+  "capabilities": [
+    {
+      "kind": "workspace:read"
+    },
+    {
+      "kind": "terminal:send"
+    },
+    {
+      "kind": "storage:own"
+    },
+    {
+      "kind": "secrets:own"
+    }
+  ]
+}
