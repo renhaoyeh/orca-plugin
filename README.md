@@ -7,6 +7,8 @@ under `plugins/`.
 | --- | --- |
 | [Agent Accounts](plugins/agent-accounts/README.md) | Codex/Claude CLI accounts plus a Pi Chat shortcut, launched from Orca's status bar. Windows prototype. |
 | [Git Identity](plugins/git-identity/README.md) | Repository Git identity in the status bar, gh account discovery, local author editing and per-repo push-account binding. Windows prototype. |
+| [MantisBT](plugins/mantisbt/README.md) | API token connection, project picker, read-only issues and inline details/comments. |
+| [Asana](plugins/asana/README.md) | Personal access token connection, project picker, read-only tasks and inline details/comments. |
 
 ## Development
 

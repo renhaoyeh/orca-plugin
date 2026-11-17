@@ -1,0 +1,13 @@
+{
+  "manifestVersion": 2,
+  "id": "asana",
+  "name": "Asana",
+  "version": "0.1.0",
+  "description": "Connect a personal access token and browse Asana project tasks. Read-only.",
+  "engines": { "orca": ">=1.4.259" },
+  "execution": "trusted-worker",
+  "pluginApi": 1,
+  "main": "src/worker.ts",
+  "contributes": { "panels": [{ "id": "issues", "title": "Asana", "icon": "blocks", "entry": "src/panel.tsx", "ui": "components" }] },
+  "capabilities": [{ "kind": "secrets:own" }, { "kind": "storage:own" }, { "kind": "workspace:read" }]
+}
