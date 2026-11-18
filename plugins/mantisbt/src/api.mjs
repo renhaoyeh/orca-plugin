@@ -1,4 +1,5 @@
 const text = value => typeof value === 'string' ? value : ''
+const mebibyte = 1024 * 1024
 export function normalizeServer(value) {
   try {
     const url = new URL(String(value).trim().replace(/\/+$/, '').replace(/\/api\/rest(?:\/index\.php)?$/i, ''))
@@ -17,6 +18,8 @@ export function client(_kind, saved, fetcher = fetch) {
   async function get(resource, query = {}) {
     const url = new URL(base + resource)
     if (!resource.startsWith('/') || /[\\?#]/.test(resource) || url.origin !== new URL(base).origin || !url.pathname.startsWith(new URL(base).pathname + '/')) throw Error('Invalid MantisBT API path.')
+    // MantisBT returns the entire accessible project tree with project metadata in one response.
+    const limitMiB = resource === '/projects' ? 32 : 4
     for (const [key, value] of Object.entries(query)) if (value !== null && value !== undefined) url.searchParams.set(key, String(value))
     async function send() {
       try { return await fetcher(url.href, { method: 'GET', redirect: 'manual', signal: AbortSignal.timeout(12000), headers: { Accept: 'application/json', Authorization: bearer ? `Bearer ${config.token}` : config.token } }) }
@@ -32,21 +35,32 @@ export function client(_kind, saved, fetcher = fetch) {
       if (response.status >= 300 && response.status < 400) throw Error('The API redirected the request. Enter the final server URL; tokens are never forwarded to redirects.')
       throw Error(`API request failed (${response.status}).`)
     }
-    const reader = response.body?.getReader(), decoder = new TextDecoder()
+    const reader = response.body?.getReader()
+    if (!reader) throw Error('The MantisBT API returned an empty response.')
+    const decoder = new TextDecoder()
     let raw = '', size = 0
-    try {
-      if (!reader) throw Error()
-      while (true) {
-        const part = await reader.read()
-        if (part.done) break
-        size += part.value.byteLength
-        if (size > 4 * 1024 * 1024) throw Error()
-        raw += decoder.decode(part.value, { stream: true })
+    while (true) {
+      const part = await reader.read().catch(() => {
+        throw Error('Could not finish reading the MantisBT API response. Check the network and try again.')
+      })
+      if (part.done) break
+      size += part.value.byteLength
+      if (size > limitMiB * mebibyte) {
+        void reader.cancel().catch(() => {})
+        throw Error(`The MantisBT API response exceeded ${limitMiB} MiB.`)
       }
-      const body = JSON.parse(raw + decoder.decode())
-      if (!body || typeof body !== 'object' || Array.isArray(body)) throw Error()
-      return body
-    } catch { await reader?.cancel().catch(() => {}); throw Error('The server did not return valid API JSON, or the response was too large.') }
+      raw += decoder.decode(part.value, { stream: true })
+    }
+    raw += decoder.decode()
+    if (!raw.trim()) throw Error('The MantisBT API returned an empty response.')
+    let body
+    try { body = JSON.parse(raw) }
+    catch {
+      if (/^\s*</.test(raw)) throw Error('The MantisBT API returned HTML. Check the server URL and any proxy or sign-in page in front of the API.')
+      throw Error('The server did not return valid API JSON.')
+    }
+    if (!body || typeof body !== 'object' || Array.isArray(body)) throw Error('The MantisBT API returned an unexpected JSON response.')
+    return body
   }
   return { read: get }
 }

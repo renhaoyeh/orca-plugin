@@ -61,8 +61,10 @@ The trusted Node worker requires:
 Node fetch runs outside host capability enforcement, with the user's machine access.
 It sends a token only to the explicitly configured Mantis server, tries raw then Bearer
 auth on 401/403, refuses redirects and escaped API paths, has a 12-second per-request
-timeout and a 4 MiB JSON-response limit, and does not echo response bodies or tokens in
-errors. HTTP is permitted for legacy servers but visibly warns that tokens are unencrypted.
+timeout, and does not echo response bodies or tokens in errors. The project list returns all
+accessible projects with metadata in one response and has a 32 MiB limit. Other API responses
+have a 4 MiB limit. HTTP is permitted for legacy servers but visibly warns that tokens are
+unencrypted.
 Review these grants before approval.
 
 ## Validation
@@ -76,5 +78,4 @@ orca plugin dev reload ./plugins/mantisbt --json
 Tests use mock HTTP, host context, encrypted storage and native panel interactions.
 They cover flat `/users/me`, nested projects, non-default resolved thresholds, exact
 membership, assigned-filter pagination, typed dates, details/comments/relationships,
-server-scoped bindings, offline saving and safe errors. No real server connectivity or
-account permissions are claimed: live verification is pending server availability.
+server-scoped bindings, offline saving, response limits and safe errors.
