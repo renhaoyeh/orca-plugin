@@ -19,6 +19,7 @@ export function asanaClient(_kind, config, request = fetch) {
       return { id: String(item.gid), name: item.name || String(item.gid), workspaceId: String(item.workspace?.gid || '') }
     },
     async projects(_cursor = null, query = '') { return { items: (await source.searchProjects(token, query, request)).map(item => ({ ...project(item), workspaceName: item.workspace })), next: null } },
+    /** @param {string | null} cursor */
     async issues(gid, cursor = null, scope = 'mine') {
       gid = id(gid)
       if (scope === 'mine') {
@@ -30,6 +31,7 @@ export function asanaClient(_kind, config, request = fetch) {
       return { items: page.tasks.map(task), next: page.next }
     },
     async subtasks(gid) { return (await source.openSubtasks(token, id(gid), request)).map(task) },
+    /** @param {string | null} projectId */
     async detail(gid, projectId = null) {
       const item = await source.taskDetails(token, id(gid), projectId ? id(projectId) : null, request)
       if (!item || item.completed) throw Error('This task was completed or deleted in Asana.')

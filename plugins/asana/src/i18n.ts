@@ -1,4 +1,8 @@
 const messages = new Map([
+  ['Task name', { 'zh-TW': '任務名稱', 'zh-CN': '任务名称' }],
+  ['Task views', { 'zh-TW': '任務檢視', 'zh-CN': '任务视图' }],
+  ['No tasks match this filter.', { 'zh-TW': '沒有符合篩選條件的任務。', 'zh-CN': '没有符合筛选条件的任务。' }],
+  ['Open in Asana', { 'zh-TW': '在 Asana 開啟', 'zh-CN': '在 Asana 中打开' }],
   ['Refresh', { 'zh-TW': '重新整理', 'zh-CN': '刷新' }],
   ['Connection settings', { 'zh-TW': '連線設定', 'zh-CN': '连接设置' }],
   ['Replace saved token', { 'zh-TW': '更換已儲存的權杖', 'zh-CN': '更换已保存的令牌' }],
@@ -30,6 +34,7 @@ const messages = new Map([
   ['All', { 'zh-TW': '全部', 'zh-CN': '全部' }],
   ['Load more', { 'zh-TW': '載入更多', 'zh-CN': '加载更多' }],
   ['Loading', { 'zh-TW': '載入中', 'zh-CN': '正在加载' }],
+  ['Retry', { 'zh-TW': '重試', 'zh-CN': '重试' }],
   ['{count} subtask', { 'zh-TW': '{count} 個子任務', 'zh-CN': '{count} 个子任务' }],
   ['{count} subtasks', { 'zh-TW': '{count} 個子任務', 'zh-CN': '{count} 个子任务' }],
   ['Connect an API token first.', { 'zh-TW': '請先設定 API 權杖。', 'zh-CN': '请先设置 API 令牌。' }],

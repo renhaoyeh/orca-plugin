@@ -1,7 +1,14 @@
 # Asana
 
-Read-only native Orca sidebar. This version aligns the core browsing flow with
-`herdr-zed-asana` instead of using the first prototype's generic issue-browser logic.
+Read-only Asana task browser in Orca's sidebar. The panel follows Orca's
+light or dark setting and uses a dedicated stylesheet for the project list,
+task details, and loading placeholders.
+
+## Open Asana
+
+Select **Asana** in Orca's right sidebar. The panel restores the active workspace's
+Asana project binding and shows the task list. Select a task to read its details
+in the same panel. Use **Open in Asana** in the task toolbar to open its web page.
 
 ## Core behavior
 
@@ -20,8 +27,9 @@ Read-only native Orca sidebar. This version aligns the core browsing flow with
   workspace, then filters project membership. All loads project open tasks a page at a
   time. Both use the original `completed_since=now` policy. Mine/All preference persists;
   the panel caches their loaded pages separately until refresh, reconnect or scope change.
-- Tasks group by Asana Section, retaining source order. Section badges have semantic
-  colors; dates are red when overdue and amber when due today. The active Mine/All
+- Tasks group by collapsible Asana Sections, retaining source order. Searching
+  reveals matching tasks in every section. Dates are red when overdue and amber
+  when due today. The active Mine/All
   control is accented. Search matches all typed words against loaded task names,
   assignees and sections. Rows include assignee, due date and subtask count.
 - Clicking a task opens its notes, assignee, due date, Section, project, all returned
@@ -30,8 +38,9 @@ Read-only native Orca sidebar. This version aligns the core browsing flow with
   Back restores the prior detail or filtered list. Comment dates are displayed.
   Comments and subtasks use the original all-page/open-item policies. Completed/deleted
   task previews are rejected. Detail history is in memory only.
-- Only an explicit Open original press launches the browser. No task writes, agents,
-  imports, commits or push. Disconnect only clears this plugin's local token.
+- Only an explicit **Open in Asana** press launches the browser. The panel uses
+  read-only API requests and keeps a short-lived in-memory cache in the worker.
+  Disconnect clears this plugin's local token.
 
 ## Reused source vs Orca adapters
 
@@ -44,10 +53,9 @@ project typeahead, open-task policy, Mine membership, pagination and comment fil
 The first-version MantisBT plugin remains separate. Their panel/domain logic is no
 longer a shared implementation; do not overwrite Asana with the Mantis source copies.
 
-Not yet ported: Board presentation, in-list subtask expansion, configurable custom-field
-display/order, remembered selected task, all-project aggregation and Tasks import.
-Colors use Orca's accessible semantic tones, not exact arbitrary Asana RGB swatches.
-This is core-flow parity, not a claim of a complete herdr-zed feature/UI port.
+Not yet ported: configurable custom-field display/order, remembered selected task,
+all-project aggregation and Tasks import.
+Custom-field and due-date colors use accessible palettes for each theme.
 
 ## Access and security
 
@@ -63,8 +71,7 @@ has a 12-second timeout and a 4 MiB JSON-response limit. API errors do not echo 
 headers or tokens. No terminal/agent permissions and no herdr-zed credential migration.
 
 Preview text is bounded to 16,000 notes characters and 30 comments of 1,500 characters;
-shortening is marked. Images/attachments are not downloaded. Native side-panel geometry
-is unchanged; this is not a new full-page editor or HTML panel.
+shortening is marked. Images and attachments are not downloaded.
 
 ## Development
 
@@ -79,4 +86,5 @@ Inspect/review the approval before enabling. Tests use mock HTTP/storage/host co
 not a real token. Live project discovery has also been verified on the local Orca host;
 read-only task/detail API reads have also succeeded, including returned custom fields.
 Real parent/subtask UI navigation still has only mocked coverage and depends on permissions.
-Render scenarios cover token settings, project search, tasks, empty, denied and pagination.
+Panel state tests cover token settings, project search, task navigation, view
+caching and switching between worktrees with the same binding.

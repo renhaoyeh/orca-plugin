@@ -8,6 +8,7 @@ declare module 'orca' {
     'connection.read': { output: ConnectionState }
     'connection.save': { input: { url: string; token: string }; output: ConnectionState }
     'connection.remove': { output: ConnectionState }
+    'data.refresh': { output: { ok: true } }
     'project.bind': { input: { scope: string; id: string }; output: Project }
     'view.save': { input: { tab: 'mine' | 'all' }; output: { ok: true } }
     'projects.list': { input: { cursor: string | null; query?: string }; output: Page<Project> }

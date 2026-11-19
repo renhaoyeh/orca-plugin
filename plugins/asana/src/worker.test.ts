@@ -1,8 +1,41 @@
 import { assert, mockHost, mountWorker, test } from 'orca/testing'
 import { createWorker } from './worker'
-const fake = { subtasks: async () => [], validate: async () => { throw Error('Original Asana token save does not validate over the network') }, projects: async () => ({ items: [], next: null }), issues: async () => ({ items: [], next: null }), detail: async () => ({}), projectInfo: async (id: string) => ({ id, name: 'Asana project', workspaceId: '1' }) }
+import { detail as exampleDetail } from './fixtures'
+const fake = { subtasks: async () => [], validate: async () => { throw Error('Original Asana token save does not validate over the network') }, projects: async () => ({ items: [], next: null }), issues: async () => ({ items: [], next: null }), detail: async () => exampleDetail, projectInfo: async (id: string) => ({ id, name: 'Asana project', workspaceId: '1' }) }
 const input = { url: '', token: 'test-only-token' }
 const capabilities = ['secrets:own', 'storage:own']
+test('shares reads across views and invalidates them on refresh or token changes', async () => {
+  let listCalls = 0, detailCalls = 0
+  const host = mockHost({ capabilities, secrets: { 'connection.v1': JSON.stringify({ token: input.token }) } })
+  const client = {
+    ...fake,
+    issues: async () => { listCalls++; return { items: [], next: null } },
+    detail: async () => { detailCalls++; return exampleDetail },
+  }
+  const worker = await mountWorker({ default: createWorker(() => client, async () => 'repo-a') }, { host })
+  const list = { project: '12', cursor: null, tab: 'mine' as const }
+  const detail = { id: '42', project: '12' }
+  await Promise.all([worker.request('issues.list', list), worker.request('issues.list', list)])
+  await worker.request('issues.detail', detail)
+  await worker.request('connection.read')
+  await worker.request('issues.list', list)
+  await worker.request('issues.detail', detail)
+  assert.equal(listCalls, 1)
+  assert.equal(detailCalls, 1)
+  await worker.request('data.refresh')
+  await worker.request('issues.list', list)
+  await worker.request('issues.list', { ...list, tab: 'all' })
+  await worker.request('issues.detail', detail)
+  assert.equal(listCalls, 3)
+  assert.equal(detailCalls, 2)
+  await worker.request('connection.save', { ...input, token: 'changed-token' })
+  await worker.request('issues.detail', detail)
+  assert.equal(detailCalls, 3)
+  await worker.request('connection.remove')
+  await assert.rejects(worker.request('issues.detail', detail), /Connect/)
+  await worker.deactivate()
+})
+
 test('Asana token autosave uses encrypted secrets; metadata never returns a token', async () => {
   const host = mockHost({ capabilities })
   const worker = await mountWorker({ default: createWorker(() => fake, async () => 'repo-a') }, { host })
