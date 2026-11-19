@@ -1,0 +1,14 @@
+{
+  "manifestVersion": 2,
+  "id": "agent-usage",
+  "name": "Agent Usage",
+  "version": "0.1.0",
+  "description": "See remaining allowance and reset times for your Orca accounts in one sidebar.",
+  "engines": { "orca": ">=1.4.264" },
+  "execution": "trusted-worker",
+  "pluginApi": 1,
+  "main": "src/worker.ts",
+  "contributes": {
+    "panels": [{ "id": "usage", "title": "Agent Usage", "icon": "gauge", "entry": "src/panel.tsx", "ui": "components" }]
+  }
+}

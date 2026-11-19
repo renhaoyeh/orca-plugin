@@ -1,0 +1,5 @@
+{
+  "extends": "./.orca/types/tsconfig.json",
+  "compilerOptions": { "allowJs": true },
+  "include": ["src"]
+}
