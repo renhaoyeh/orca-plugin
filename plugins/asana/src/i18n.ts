@@ -1,0 +1,82 @@
+const messages = new Map([
+  ['Refresh', { 'zh-TW': '重新整理', 'zh-CN': '刷新' }],
+  ['Connection settings', { 'zh-TW': '連線設定', 'zh-CN': '连接设置' }],
+  ['Replace saved token', { 'zh-TW': '更換已儲存的權杖', 'zh-CN': '更换已保存的令牌' }],
+  ['Paste your token', { 'zh-TW': '貼上權杖', 'zh-CN': '粘贴令牌' }],
+  ['Saving…', { 'zh-TW': '儲存中…', 'zh-CN': '正在保存…' }],
+  ['Saved', { 'zh-TW': '已儲存', 'zh-CN': '已保存' }],
+  ['Changes save automatically.', { 'zh-TW': '變更會自動儲存。', 'zh-CN': '更改会自动保存。' }],
+  ['Token cleared', { 'zh-TW': '已清除權杖', 'zh-CN': '已清除令牌' }],
+  ['Disconnect', { 'zh-TW': '中斷連線', 'zh-CN': '断开连接' }],
+  ['Back to tasks', { 'zh-TW': '返回任務列表', 'zh-CN': '返回任务列表' }],
+  ['Search projects', { 'zh-TW': '搜尋專案', 'zh-CN': '搜索项目' }],
+  ['Projects', { 'zh-TW': '專案', 'zh-CN': '项目' }],
+  ['No matching projects.', { 'zh-TW': '沒有符合的專案。', 'zh-CN': '没有匹配的项目。' }],
+  ['Back', { 'zh-TW': '返回', 'zh-CN': '返回' }],
+  ['Open original', { 'zh-TW': '開啟原始內容', 'zh-CN': '打开原始内容' }],
+  ['No section', { 'zh-TW': '未分組', 'zh-CN': '未分组' }],
+  ['Assignee', { 'zh-TW': '負責人', 'zh-CN': '负责人' }],
+  ['Unassigned', { 'zh-TW': '未指派', 'zh-CN': '未分配' }],
+  ['Due date', { 'zh-TW': '到期日', 'zh-CN': '截止日期' }],
+  ['Project', { 'zh-TW': '專案', 'zh-CN': '项目' }],
+  ['Description', { 'zh-TW': '描述', 'zh-CN': '描述' }],
+  ['No description.', { 'zh-TW': '沒有描述。', 'zh-CN': '没有描述。' }],
+  ['Subtasks', { 'zh-TW': '子任務', 'zh-CN': '子任务' }],
+  ['No open subtasks.', { 'zh-TW': '沒有未完成的子任務。', 'zh-CN': '没有未完成的子任务。' }],
+  ['Comments', { 'zh-TW': '留言', 'zh-CN': '评论' }],
+  ['No comments.', { 'zh-TW': '沒有留言。', 'zh-CN': '没有评论。' }],
+  ['Preview shortened. Open original for the full content.', { 'zh-TW': '預覽已截短。開啟原始內容可查看全文。', 'zh-CN': '预览已截短。打开原始内容可查看全文。' }],
+  ['Mine', { 'zh-TW': '我的', 'zh-CN': '我的' }],
+  ['All', { 'zh-TW': '全部', 'zh-CN': '全部' }],
+  ['Load more', { 'zh-TW': '載入更多', 'zh-CN': '加载更多' }],
+  ['Loading', { 'zh-TW': '載入中', 'zh-CN': '正在加载' }],
+  ['{count} subtask', { 'zh-TW': '{count} 個子任務', 'zh-CN': '{count} 个子任务' }],
+  ['{count} subtasks', { 'zh-TW': '{count} 個子任務', 'zh-CN': '{count} 个子任务' }],
+  ['Connect an API token first.', { 'zh-TW': '請先設定 API 權杖。', 'zh-CN': '请先设置 API 令牌。' }],
+  ['Settings are being saved. Please wait.', { 'zh-TW': '正在儲存設定，請稍候。', 'zh-CN': '正在保存设置，请稍候。' }],
+  ['Enter a valid API token.', { 'zh-TW': '請輸入有效的 API 權杖。', 'zh-CN': '请输入有效的 API 令牌。' }],
+  ['Personal access token', { 'zh-TW': '個人存取權杖', 'zh-CN': '个人访问令牌' }],
+  ['Choose Asana project', { 'zh-TW': '選擇 Asana 專案', 'zh-CN': '选择 Asana 项目' }],
+  ['Filter tasks', { 'zh-TW': '篩選任務', 'zh-CN': '筛选任务' }],
+  ['No tasks found.', { 'zh-TW': '找不到任務。', 'zh-CN': '找不到任务。' }],
+  ['Workspace list is incomplete. Cannot safely bind an Asana project.', { 'zh-TW': '工作區清單不完整，無法綁定 Asana 專案。', 'zh-CN': '工作区列表不完整，无法绑定 Asana 项目。' }],
+  ['Workspace changed. Reopen Asana.', { 'zh-TW': '工作區已切換，請重新開啟 Asana。', 'zh-CN': '工作区已切换，请重新打开 Asana。' }],
+  ['Project list is incomplete. Cannot safely bind an Asana project.', { 'zh-TW': '專案清單不完整，無法綁定 Asana 專案。', 'zh-CN': '项目列表不完整，无法绑定 Asana 项目。' }],
+  ['Workspace project is unavailable. Reopen Asana.', { 'zh-TW': '無法存取工作區專案，請重新開啟 Asana。', 'zh-CN': '无法访问工作区项目，请重新打开 Asana。' }],
+  ['Saved connection is invalid. Replace the token in Settings.', { 'zh-TW': '已儲存的連線無效，請在設定中更換權杖。', 'zh-CN': '已保存的连接无效，请在设置中更换令牌。' }],
+  ['Workspace changed. Choose the project again.', { 'zh-TW': '工作區已切換，請重新選擇專案。', 'zh-CN': '工作区已切换，请重新选择项目。' }],
+  ['Invalid Asana view.', { 'zh-TW': '無效的 Asana 檢視。', 'zh-CN': '无效的 Asana 视图。' }],
+  ['Invalid Asana ID.', { 'zh-TW': '無效的 Asana ID。', 'zh-CN': '无效的 Asana ID。' }],
+  ['Asana did not return a user.', { 'zh-TW': 'Asana 未回傳使用者資料。', 'zh-CN': 'Asana 未返回用户数据。' }],
+  ['Asana project was not found.', { 'zh-TW': '找不到 Asana 專案。', 'zh-CN': '找不到 Asana 项目。' }],
+  ['Asana project has no workspace.', { 'zh-TW': 'Asana 專案沒有對應的工作區。', 'zh-CN': 'Asana 项目没有对应的工作区。' }],
+  ['This task was completed or deleted in Asana.', { 'zh-TW': '這個任務已在 Asana 完成或刪除。', 'zh-CN': '此任务已在 Asana 完成或删除。' }],
+  ['Comments could not be loaded. Refresh to retry.', { 'zh-TW': '無法載入留言，請重新整理後再試。', 'zh-CN': '无法加载评论，请刷新后重试。' }],
+  ['Invalid Asana API path.', { 'zh-TW': '無效的 Asana API 路徑。', 'zh-CN': '无效的 Asana API 路径。' }],
+  ['Could not reach Asana. Check the network and TLS certificate.', { 'zh-TW': '無法連線至 Asana。請檢查網路和 TLS 憑證。', 'zh-CN': '无法连接 Asana。请检查网络和 TLS 证书。' }],
+  ['Asana rejected the token or denied access. Replace the token in Settings.', { 'zh-TW': 'Asana 拒絕權杖或存取要求，請在設定中更換權杖。', 'zh-CN': 'Asana 拒绝令牌或访问请求，请在设置中更换令牌。' }],
+  ['Item not found.', { 'zh-TW': '找不到項目。', 'zh-CN': '找不到条目。' }],
+  ['Asana rate limit reached. Wait before refreshing.', { 'zh-TW': '已達 Asana 請求頻率上限，請稍候再重新整理。', 'zh-CN': '已达到 Asana 请求频率上限，请稍后刷新。' }],
+  ['Asana redirected the request. Tokens are never forwarded to redirects.', { 'zh-TW': 'Asana 重新導向了請求，權杖不會傳送到重新導向的位址。', 'zh-CN': 'Asana 重定向了请求，令牌不会发送到重定向地址。' }],
+  ['Asana API request failed ({status}).', { 'zh-TW': 'Asana API 請求失敗（{status}）。', 'zh-CN': 'Asana API 请求失败（{status}）。' }],
+  ['Asana did not return valid API JSON, or the response was too large.', { 'zh-TW': 'Asana API 回應的 JSON 無效，或回應過大。', 'zh-CN': 'Asana API 响应的 JSON 无效，或响应过大。' }],
+])
+
+export function localeOf(locale: string | undefined) {
+  const tag = (locale || '').toLowerCase().replaceAll('_', '-')
+  if (/^zh-(hant|tw|hk|mo)(-|$)/.test(tag)) return 'zh-TW'
+  if (/^zh(-|$)/.test(tag)) return 'zh-CN'
+  return 'en'
+}
+
+export function translate(source: string, locale: ReturnType<typeof localeOf>, values?: Record<string, number>) {
+  const entry = messages.get(source)
+  const message = entry && locale !== 'en' ? entry[locale] : source
+  return values ? message.replace(/\{(\w+)\}/g, (token, key) => String(values[key] ?? token)) : message
+}
+
+export function translateError(source: string, locale: ReturnType<typeof localeOf>) {
+  const status = /^Asana API request failed \((\d+)\)\.$/.exec(source)
+  if (status) return translate('Asana API request failed ({status}).', locale, { status: Number(status[1]) })
+  return translate(source, locale)
+}

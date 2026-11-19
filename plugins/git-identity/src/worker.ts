@@ -4,10 +4,13 @@ import { readIdentity, saveIdentity } from './git.mjs'
 import { openPanel } from './open-panel.mjs'
 import { listGitHubAccounts, readGitHubAuthor } from './github.mjs'
 import { readPushBinding, savePushBinding } from './push.mjs'
+import { localeOf, translate } from './i18n'
 
 export function createWorker(deps = { readIdentity, saveIdentity, openPanel }, github = { listGitHubAccounts, readGitHubAuthor }, push = { readPushBinding, savePushBinding }) {
   return async function activate(orca: OrcaWorkerApi) {
     let revision = 0, saving = false
+    let locale = localeOf(undefined)
+    const t = (source: string) => translate(source, locale)
     let workspaceKey: string | null | undefined
     async function target() {
       const context = await orca.host.call('workspace.readContext', {})
@@ -30,15 +33,18 @@ export function createWorker(deps = { readIdentity, saveIdentity, openPanel }, g
         const identity = value.identity
         await orca.host.call('statusBar.update', {
           id: 'identity', visible: true, icon: 'branch',
-          text: identity ? `Git · ${value.pushBinding?.managed ? value.pushBinding.login : identity.name && identity.email ? identity.name : 'Set identity'}` : 'Git · Unavailable',
+          text: identity ? `Git · ${value.pushBinding?.managed ? value.pushBinding.login : identity.name && identity.email ? identity.name : t('Set identity')}` : `Git · ${t('Unavailable')}`,
           tone: !identity || !identity.name || !identity.email || identity.environmentOverride || value.pushBinding?.managed === false ? 'warning' : 'neutral',
-          tooltip: identity ? `${identity.repoPath.split(/[\\/]/).filter(Boolean).pop()}\n${identity.name || '(unset)'} <${identity.email || '(unset)'}>${value.pushBinding ? `\n${value.pushBinding.login} · ${value.pushBinding.host}` : ''}` : value.problem,
+          tooltip: identity ? `${identity.repoPath.split(/[\\/]/).filter(Boolean).pop()}\n${identity.name || t('(unset)')} <${identity.email || t('(unset)')}>${value.pushBinding ? `\n${value.pushBinding.login} · ${value.pushBinding.host}` : ''}` : t(value.problem),
         })
       }
       return value
     }
     orca.commands.register('identity.open', () => deps.openPanel())
-    orca.panels.handle('identity.read', refresh)
+    orca.panels.handle('identity.read', input => {
+      if (typeof input?.locale === 'string') locale = localeOf(input.locale)
+      return refresh()
+    })
     orca.panels.handle('github.accounts', async () => {
       await target()
       return github.listGitHubAccounts()

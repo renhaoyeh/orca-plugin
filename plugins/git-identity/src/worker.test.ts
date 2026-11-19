@@ -28,5 +28,11 @@ test('remote workspaces never execute local Git', async () => {
   const state = await worker.request('identity.read')
   assert.equal(state.identity, null); assert.equal(reads, 0)
   assert.ok(state.problem.includes('local Windows'))
+  await worker.request('identity.read', { locale: 'zh-HK' })
+  const updates = host.callsOf('statusBar.update') as { text: string; tooltip: string }[]
+  assert.equal(updates.at(-1)?.text, 'Git · 無法使用')
+  assert.equal(updates.at(-1)?.tooltip, '僅支援本機 Windows Git 工作區。')
+  await worker.request('identity.read', { locale: 'fr-FR' })
+  assert.equal((host.callsOf('statusBar.update') as { text: string }[]).at(-1)?.text, 'Git · Unavailable')
   await worker.deactivate()
 })

@@ -1,6 +1,18 @@
 import { assert, mockHost, mount, test } from 'orca/testing'
 import * as panel from './panel'
 import { connected, requests, projects, detail } from './fixtures'
+
+test('renders Simplified Chinese settings and preserves the API error status', async () => {
+  const view = await mount(panel, { locale: 'zh-Hans-CN', host: mockHost({ requests: {
+    ...requests, 'connection.read': () => ({ configured: false, url: '' }),
+    'connection.save': () => { throw Error('API request failed (503).') },
+  } }) })
+  assert.ok(view.find({ label: '服务器地址' }))
+  await view.type({ label: 'API 令牌' }, 'test-only-token', { replace: true, submit: true })
+  assert.ok(view.find({ text: 'API 请求失败（503）。' }))
+  await view.unmount()
+})
+
 test('token settings save on submit without Connect, then wait for an explicit project choice', async () => {
   let bindings = 0, saved: unknown
   const view = await mount(panel, { host: mockHost({ requests: {

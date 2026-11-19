@@ -1,4 +1,5 @@
-import { atom, read, set, plugin, host, on, Stack, Row, Heading, Text, Input, Button, IconButton, List, ListItem, Callout, Spinner, Badge, Separator, type PanelContext } from 'orca'
+import { env, atom, read, set, plugin, host, on, Stack, Row, Heading, Text, Input, Button, IconButton, List, ListItem, Callout, Spinner, Badge, Separator, type PanelContext } from 'orca'
+import { localeOf, translate, translateError } from './i18n'
 import type { ConnectionState, Project, Issue, IssueDetail, Page } from './protocol'
 import { sectionTone, fieldTone, dueTone, dateLabel } from './presentation'
 const config = atom<ConnectionState | null>(null), settings = atom(false), busy = atom(false), problem = atom(''), status = atom('')
@@ -118,33 +119,36 @@ export function setup(ctx: PanelContext) {
   }
 }
 export default function Panel() {
+  const locale = localeOf(env.locale)
+  const t = (source: string, values?: Record<string, number>) => translate(source, locale, values)
+  const formatDate = (value: string) => dateLabel(value, locale)
   const saved = read(config), pending = read(busy), bound = read(project), entry = read(detail)
   const words = read(query).toLowerCase().split(/\s+/).filter(Boolean)
   const rows = read(issues).filter(item => words.every(word => `${item.title} ${item.assignee} ${item.section || ''}`.toLowerCase().includes(word)))
-  const groups = [...new Set(rows.map(item => item.section || 'No section'))]
+  const groups = [...new Set(rows.map(item => item.section || ''))]
   return <Stack gap="md">
     <Row justify="between" align="center">
       <Heading level={2}>Asana</Heading>
       <Row gap="xs">
-        {saved?.configured && <IconButton icon="refresh" label="Refresh" variant="ghost" disabled={pending} onPress={() => run(current => read(detailId) ? loadDetail(current, read(detailId)) : read(picker) ? loadProjects(current) : loadIssues(current, false, true))} />}
-        <IconButton icon="settings" label="Connection settings" variant="ghost" disabled={pending} onPress={() => { if (!read(settings)) set(settings, true); else if (read(token).trim()) { void saveToken(); set(settings, false) } else void reload() }} />
+        {saved?.configured && <IconButton icon="refresh" label={t('Refresh')} variant="ghost" disabled={pending} onPress={() => run(current => read(detailId) ? loadDetail(current, read(detailId)) : read(picker) ? loadProjects(current) : loadIssues(current, false, true))} />}
+        <IconButton icon="settings" label={t('Connection settings')} variant="ghost" disabled={pending} onPress={() => { if (!read(settings)) set(settings, true); else if (read(token).trim()) { void saveToken(); set(settings, false) } else void reload() }} />
       </Row>
     </Row>
-    {read(problem) && <Callout tone="danger">{read(problem)}</Callout>}
+    {read(problem) && <Callout tone="danger">{translateError(read(problem), locale)}</Callout>}
     {read(settings) ? <Stack gap="md">
-      <Input label="Personal access token" type="password" placeholder={saved?.configured ? 'Replace saved token' : 'Paste your token'} value={read(token)} maxLength={8192} disabled={pending} onChange={editToken} onSubmit={() => saveToken()} />
-      <Text muted size="sm">{pending ? 'Saving…' : read(status) || 'Changes save automatically.'}</Text>
+      <Input label={t('Personal access token')} type="password" placeholder={saved?.configured ? t('Replace saved token') : t('Paste your token')} value={read(token)} maxLength={8192} disabled={pending} onChange={editToken} onSubmit={() => saveToken()} />
+      <Text muted size="sm">{t(pending ? 'Saving…' : read(status) || 'Changes save automatically.')}</Text>
       {saved?.configured && <Button variant="ghost" disabled={pending} onPress={() => run(async current => {
         clearTimeout(saveTimer)
         const value = await plugin.request('connection.remove')
         if (current()) { set(config, value); set(token, ''); set(project, null); set(issues, []); set(detail, null); set(detailId, ''); set(status, 'Token cleared'); cache.clear() }
-      })}>Disconnect</Button>}
+      })}>{t('Disconnect')}</Button>}
     </Stack> : saved?.configured && <Stack gap="md">
       {read(picker) ? <Stack gap="md">
-        {bound && <Button variant="ghost" disabled={pending} onPress={() => set(picker, false)}>Back to tasks</Button>}
-        <Input label="Search projects" type="search" value={read(projectQuery)} onChange={value => searchProjects(value)} onSubmit={value => searchProjects(value, true)} />
-        <List label="Projects">{read(projects).map(item => <ListItem key={item.id} title={item.name} description={item.workspaceName} current={item.id === bound?.id} icon="folder" disabled={pending} onPress={() => choose(item)} />)}</List>
-        {!pending && read(projects).length === 0 && <Text muted>No matching projects.</Text>}
+        {bound && <Button variant="ghost" disabled={pending} onPress={() => set(picker, false)}>{t('Back to tasks')}</Button>}
+        <Input label={t('Search projects')} type="search" value={read(projectQuery)} onChange={value => searchProjects(value)} onSubmit={value => searchProjects(value, true)} />
+        <List label={t('Projects')}>{read(projects).map(item => <ListItem key={item.id} title={item.name} description={item.workspaceName} current={item.id === bound?.id} icon="folder" disabled={pending} onPress={() => choose(item)} />)}</List>
+        {!pending && read(projects).length === 0 && <Text muted>{t('No matching projects.')}</Text>}
       </Stack> : read(detailId) ? <Stack gap="md">
         <Row justify="between" align="center">
           <Button variant="ghost" disabled={pending} onPress={() => {
@@ -152,54 +156,54 @@ export default function Panel() {
             set(problem, ''); set(history, trail)
             if (previous) { set(detailId, previous.detail.id); set(detail, previous.detail); set(children, previous.children) }
             else { set(detailId, ''); set(detail, null); set(children, []) }
-          }}>{read(history).length ? 'Back' : 'Back to issues'}</Button>
-          {entry?.url && <IconButton icon="open-external" label="Open original" variant="ghost" onPress={() => host.call('shell.openExternal', { url: entry.url })} />}
+          }}>{read(history).length ? t('Back') : t('Back to tasks')}</Button>
+          {entry?.url && <IconButton icon="open-external" label={t('Open original')} variant="ghost" onPress={() => host.call('shell.openExternal', { url: entry.url })} />}
         </Row>
         {entry && <Stack gap="md">
-          <Row gap="sm" align="center"><Badge tone={sectionTone(entry.section || '')}>{entry.section || 'No section'}</Badge><Text muted size="xs">#{entry.id}</Text></Row>
+          <Row gap="sm" align="center"><Badge tone={sectionTone(entry.section || '')}>{entry.section || t('No section')}</Badge><Text muted size="xs">#{entry.id}</Text></Row>
           <Heading level={3}>{entry.title}</Heading>
           {entry.parent && <Button variant="ghost" disabled={pending} onPress={() => navigateDetail(entry.parent!.id)}>{`↳ ${entry.parent.title}`}</Button>}
           <Stack gap="sm">
-            <Row gap="sm" justify="between"><Text muted size="sm">Assignee</Text><Text size="sm">{entry.assignee || 'Unassigned'}</Text></Row>
-            <Row gap="sm" justify="between"><Text muted size="sm">Due date</Text><Text size="sm" tone={dueTone(entry.due || '')}>{entry.due ? dateLabel(entry.due) : '—'}</Text></Row>
-            <Row gap="sm" justify="between"><Text muted size="sm">Project</Text><Text size="sm">{bound?.name || '—'}</Text></Row>
+            <Row gap="sm" justify="between"><Text muted size="sm">{t('Assignee')}</Text><Text size="sm">{entry.assignee || t('Unassigned')}</Text></Row>
+            <Row gap="sm" justify="between"><Text muted size="sm">{t('Due date')}</Text><Text size="sm" tone={dueTone(entry.due || '')}>{entry.due ? formatDate(entry.due) : '—'}</Text></Row>
+            <Row gap="sm" justify="between"><Text muted size="sm">{t('Project')}</Text><Text size="sm">{bound?.name || '—'}</Text></Row>
             {(entry.customFields || []).map(field => <Stack key={field.id} gap="xs">
               <Text muted size="xs">{field.name}</Text>
               {['enum', 'multi_enum'].includes(field.type) ? <Badge tone={fieldTone(field.color, field.displayValue)}>{field.displayValue || '—'}</Badge> : <Text size="sm">{field.displayValue || '—'}</Text>}
             </Stack>)}
           </Stack>
           <Separator />
-          <Heading level={3}>Description</Heading>
-          <Text>{entry.description || 'No description.'}</Text>
+          <Heading level={3}>{t('Description')}</Heading>
+          <Text>{entry.description || t('No description.')}</Text>
           {!!entry.subtasks && <Stack gap="sm">
-            <Heading level={3}>Subtasks</Heading>
-            <List label="Subtasks">{read(children).map(item => <ListItem key={item.id} title={item.title} description={[item.assignee, item.due ? dateLabel(item.due) : ''].filter(Boolean).join(' · ')} disabled={pending} onPress={() => navigateDetail(item.id)} />)}</List>
-            {!pending && !read(children).length && <Text muted size="sm">No open subtasks.</Text>}
+            <Heading level={3}>{t('Subtasks')}</Heading>
+            <List label={t('Subtasks')}>{read(children).map(item => <ListItem key={item.id} title={item.title} description={[item.assignee, item.due ? formatDate(item.due) : ''].filter(Boolean).join(' · ')} disabled={pending} onPress={() => navigateDetail(item.id)} />)}</List>
+            {!pending && !read(children).length && <Text muted size="sm">{t('No open subtasks.')}</Text>}
           </Stack>}
           <Separator />
-          <Heading level={3}>Comments</Heading>
-          {entry.commentsError && <Text muted size="sm">{entry.commentsError}</Text>}
-          {!entry.commentsError && !entry.comments.length && <Text muted>No comments.</Text>}
-          {entry.comments.map(item => <Stack key={item.id} gap="xs"><Row gap="sm" justify="between"><Text weight="medium" size="sm" tone="accent">{item.author}</Text>{item.at && <Text muted size="xs">{dateLabel(item.at)}</Text>}</Row><Text size="sm">{item.text}</Text></Stack>)}
-          {entry.truncated && <Text muted size="xs">Preview shortened. Open original for the full content.</Text>}
+          <Heading level={3}>{t('Comments')}</Heading>
+          {entry.commentsError && <Text muted size="sm">{t(entry.commentsError)}</Text>}
+          {!entry.commentsError && !entry.comments.length && <Text muted>{t('No comments.')}</Text>}
+          {entry.comments.map(item => <Stack key={item.id} gap="xs"><Row gap="sm" justify="between"><Text weight="medium" size="sm" tone="accent">{item.author}</Text>{item.at && <Text muted size="xs">{formatDate(item.at)}</Text>}</Row><Text size="sm">{item.text}</Text></Stack>)}
+          {entry.truncated && <Text muted size="xs">{t('Preview shortened. Open original for the full content.')}</Text>}
         </Stack>}
       </Stack> : <Stack gap="md">
-        <Button variant="ghost" icon="folder" disabled={pending} onPress={() => run(async current => { set(picker, true); await loadProjects(current) })}>{bound?.name || 'Choose Asana project'}</Button>
-        <Row gap="sm">{(['mine', 'all'] as const).map(value => <Button key={value} variant={read(tab) === value ? 'outline' : 'ghost'} tone={read(tab) === value ? 'accent' : 'neutral'} disabled={pending} onPress={() => run(async current => { await plugin.request('view.save', { tab: value }); if (!current()) return; set(tab, value); await loadIssues(current) })}>{value === 'mine' ? 'Mine' : 'All'}</Button>)}</Row>
-        <Input label="Filter tasks" type="search" value={read(query)} onChange={value => set(query, value)} />
+        <Button variant="ghost" icon="folder" disabled={pending} onPress={() => run(async current => { set(picker, true); await loadProjects(current) })}>{bound?.name || t('Choose Asana project')}</Button>
+        <Row gap="sm">{(['mine', 'all'] as const).map(value => <Button key={value} variant={read(tab) === value ? 'outline' : 'ghost'} tone={read(tab) === value ? 'accent' : 'neutral'} disabled={pending} onPress={() => run(async current => { await plugin.request('view.save', { tab: value }); if (!current()) return; set(tab, value); await loadIssues(current) })}>{value === 'mine' ? t('Mine') : t('All')}</Button>)}</Row>
+        <Input label={t('Filter tasks')} type="search" value={read(query)} onChange={value => set(query, value)} />
         {groups.map(section => <Stack key={section} gap="sm">
-          <Row gap="sm" align="center"><Badge tone={sectionTone(section)}>{section}</Badge><Text muted size="xs">{String(rows.filter(item => (item.section || 'No section') === section).length)}</Text></Row>
-          <List label={section}>{rows.filter(item => (item.section || 'No section') === section).map(item => <ListItem key={item.id} title={item.title} description={item.assignee || 'Unassigned'} disabled={pending} onPress={() => run(async current => { set(history, []); set(detailId, item.id); set(detail, null); await loadDetail(current, item.id) })}>
+          <Row gap="sm" align="center"><Badge tone={sectionTone(section)}>{section || t('No section')}</Badge><Text muted size="xs">{String(rows.filter(item => (item.section || '') === section).length)}</Text></Row>
+          <List label={section || t('No section')}>{rows.filter(item => (item.section || '') === section).map(item => <ListItem key={item.id} title={item.title} description={item.assignee || t('Unassigned')} disabled={pending} onPress={() => run(async current => { set(history, []); set(detailId, item.id); set(detail, null); await loadDetail(current, item.id) })}>
             <Row gap="sm" align="center">
-              {item.due && <Text size="xs" tone={dueTone(item.due)}>{dateLabel(item.due)}</Text>}
-              {!!item.subtasks && <Badge>{`${item.subtasks} subtask${item.subtasks === 1 ? '' : 's'}`}</Badge>}
+              {item.due && <Text size="xs" tone={dueTone(item.due)}>{formatDate(item.due)}</Text>}
+              {!!item.subtasks && <Badge>{t(item.subtasks === 1 ? '{count} subtask' : '{count} subtasks', { count: item.subtasks })}</Badge>}
             </Row>
           </ListItem>)}</List>
         </Stack>)}
-        {!pending && !rows.length && <Text muted>No tasks found.</Text>}
-        {read(next) && read(tab) === 'all' && <Button variant="ghost" disabled={pending} onPress={() => run(current => loadIssues(current, true))}>Load more</Button>}
+        {!pending && !rows.length && <Text muted>{t('No tasks found.')}</Text>}
+        {read(next) && read(tab) === 'all' && <Button variant="ghost" disabled={pending} onPress={() => run(current => loadIssues(current, true))}>{t('Load more')}</Button>}
       </Stack>}
     </Stack>}
-    {pending && <Spinner label="Loading" />}
+    {pending && <Spinner label={t('Loading')} />}
   </Stack>
 }

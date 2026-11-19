@@ -1,4 +1,5 @@
-import { atom, read, set, plugin, on, Stack, Row, Heading, Text, Input, Button, IconButton, Select, Callout, Spinner, type PanelContext } from 'orca'
+import { env, atom, read, set, plugin, on, Stack, Row, Heading, Text, Input, Button, IconButton, Select, Callout, Spinner, type PanelContext } from 'orca'
+import { localeOf, translate } from './i18n'
 import type { IdentityState } from './protocol'
 
 const state = atom<IdentityState | null>(null)
@@ -45,7 +46,7 @@ async function chooseAccount(key: string) {
       if (!switched) set(selected, previous)
       const message = cause instanceof Error ? cause.message : String(cause)
       set(notice, '')
-      set(error, switched ? `Account switched, but the profile could not be loaded. ${message}` : message)
+      set(error, switched ? `${translate('Account switched, but the profile could not be loaded.', localeOf(env.locale))} ${translate(message, localeOf(env.locale))}` : message)
     }
   } finally { set(busy, false) }
 }
@@ -57,7 +58,7 @@ async function refresh() {
   const request = ++revision
   set(state, null); set(error, ''); set(notice, ''); set(selected, 'default')
   try {
-    const value = await plugin.request('identity.read')
+    const value = await plugin.request('identity.read', { locale: env.locale })
     if (request === revision) apply(value)
   } catch (cause) { if (request === revision) set(error, cause instanceof Error ? cause.message : String(cause)) }
 }
@@ -106,37 +107,39 @@ export function setup(ctx: PanelContext) {
   return () => { revision++; accountRevision++ }
 }
 export default function Panel() {
+  const locale = localeOf(env.locale)
+  const t = (source: string) => translate(source, locale)
   const value = read(state), identity = value?.identity, pending = read(busy)
   const changed = identity && (read(name) !== identity.name || read(email) !== identity.email)
-  const options = read(accounts).map(account => ({ value: JSON.stringify([account.host, account.login]), label: `${account.login} · ${account.host}${account.available ? '' : ' · unavailable'}`, disabled: !account.available }))
-  options.unshift({ value: 'default', label: 'Default', disabled: false })
-  if (value?.pushBinding && !options.some(option => option.value === JSON.stringify([value.pushBinding!.host, value.pushBinding!.login]))) options.push({ value: JSON.stringify([value.pushBinding.host, value.pushBinding.login]), label: `${value.pushBinding.login} · ${value.pushBinding.host} · unavailable`, disabled: true })
+  const options = read(accounts).map(account => ({ value: JSON.stringify([account.host, account.login]), label: `${account.login} · ${account.host}${account.available ? '' : ` · ${t('unavailable')}`}`, disabled: !account.available }))
+  options.unshift({ value: 'default', label: t('Default'), disabled: false })
+  if (value?.pushBinding && !options.some(option => option.value === JSON.stringify([value.pushBinding!.host, value.pushBinding!.login]))) options.push({ value: JSON.stringify([value.pushBinding.host, value.pushBinding.login]), label: `${value.pushBinding.login} · ${value.pushBinding.host} · ${t('unavailable')}`, disabled: true })
   return <Stack gap="lg">
     <Row justify="between" align="center">
-      <Heading level={2}>Git Identity</Heading>
-      <IconButton icon="refresh" label="Refresh identity" variant="ghost" disabled={pending || read(accountsLoading)} onPress={async () => { await Promise.all([refresh(), refreshAccounts()]) }} />
+      <Heading level={2}>{t('Git Identity')}</Heading>
+      <IconButton icon="refresh" label={t('Refresh identity')} variant="ghost" disabled={pending || read(accountsLoading)} onPress={async () => { await Promise.all([refresh(), refreshAccounts()]) }} />
     </Row>
-    {read(error) && <Callout tone="danger" title="Could not complete">{read(error)}</Callout>}
-    {!value && !read(error) && <Spinner label="Reading Git identity" />}
-    {value?.problem && <Callout tone="warning">{value.problem}</Callout>}
+    {read(error) && <Callout tone="danger" title={t('Could not complete')}>{t(read(error))}</Callout>}
+    {!value && !read(error) && <Spinner label={t('Reading Git identity')} />}
+    {value?.problem && <Callout tone="warning">{t(value.problem)}</Callout>}
     {identity && <Stack gap="md">
       <Stack gap="sm">
-        <Select label="GitHub account" placeholder={read(accountsLoading) ? 'Reading gh accounts…' : 'Choose a gh account'} value={read(selected)} disabled={pending || read(accountsLoading) || value?.pushBinding?.managed === false} options={options} onChange={chooseAccount} />
-        {read(githubProblem) && <Text muted size="sm">{read(githubProblem)} You can still enter an author manually.</Text>}
-        {!read(accountsLoading) && !read(githubProblem) && read(accounts).length === 0 && <Text muted size="sm">No gh accounts found. Run gh auth login, then refresh.</Text>}
-        {value?.pushBinding?.managed === false && <Callout tone="warning">Push settings were changed externally. Refresh or inspect Git config; the plugin will not overwrite them.</Callout>}
+        <Select label={t('GitHub account')} placeholder={read(accountsLoading) ? t('Reading gh accounts…') : t('Choose a gh account')} value={read(selected)} disabled={pending || read(accountsLoading) || value?.pushBinding?.managed === false} options={options} onChange={chooseAccount} />
+        {read(githubProblem) && <Text muted size="sm">{t(read(githubProblem))} {t('You can still enter an author manually.')}</Text>}
+        {!read(accountsLoading) && !read(githubProblem) && read(accounts).length === 0 && <Text muted size="sm">{t('No gh accounts found. Run gh auth login, then refresh.')}</Text>}
+        {value?.pushBinding?.managed === false && <Callout tone="warning">{t('Push settings were changed externally. Refresh or inspect Git config; the plugin will not overwrite them.')}</Callout>}
       </Stack>
       <Stack gap="sm">
-        <Input label="Name" value={read(name)} maxLength={200} disabled={pending || !identity.canSave} onChange={next => set(name, next)} />
+        <Input label={t('Name')} value={read(name)} maxLength={200} disabled={pending || !identity.canSave} onChange={next => set(name, next)} />
       </Stack>
       <Stack gap="sm">
-        <Input label="Email" value={read(email)} maxLength={254} disabled={pending || !identity.canSave} onChange={next => set(email, next)} />
+        <Input label={t('Email')} value={read(email)} maxLength={254} disabled={pending || !identity.canSave} onChange={next => set(email, next)} />
       </Stack>
-      {!identity.canSave && <Callout tone="warning">A worktree or command-level setting overrides the repository. Resolve that override before saving.</Callout>}
-      {identity.environmentOverride && <Callout tone="warning">Identity environment variables are set in the worker. They can override Git config; other terminals may have different overrides.</Callout>}
+      {!identity.canSave && <Callout tone="warning">{t('A worktree or command-level setting overrides the repository. Resolve that override before saving.')}</Callout>}
+      {identity.environmentOverride && <Callout tone="warning">{t('Identity environment variables are set in the worker. They can override Git config; other terminals may have different overrides.')}</Callout>}
       <Row gap="sm" align="center">
-        <Button variant="outline" icon="check" disabled={pending || !identity.canSave || !changed || !read(name).trim() || !read(email).trim()} onPress={save}>{pending ? 'Saving…' : 'Save'}</Button>
-        {read(notice) && <Text muted size="sm">{read(notice)}</Text>}
+        <Button variant="outline" icon="check" disabled={pending || !identity.canSave || !changed || !read(name).trim() || !read(email).trim()} onPress={save}>{pending ? t('Saving…') : t('Save')}</Button>
+        {read(notice) && <Text muted size="sm">{t(read(notice))}</Text>}
       </Row>
     </Stack>}
   </Stack>

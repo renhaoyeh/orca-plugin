@@ -1,0 +1,108 @@
+const messages = new Map([
+  ['Refresh', { 'zh-TW': '重新整理', 'zh-CN': '刷新' }],
+  ['Connection settings', { 'zh-TW': '連線設定', 'zh-CN': '连接设置' }],
+  ['Replace saved token', { 'zh-TW': '更換已儲存的權杖', 'zh-CN': '更换已保存的令牌' }],
+  ['Paste your token', { 'zh-TW': '貼上權杖', 'zh-CN': '粘贴令牌' }],
+  ['Saving…', { 'zh-TW': '儲存中…', 'zh-CN': '正在保存…' }],
+  ['Saved', { 'zh-TW': '已儲存', 'zh-CN': '已保存' }],
+  ['Changes save automatically.', { 'zh-TW': '變更會自動儲存。', 'zh-CN': '更改会自动保存。' }],
+  ['Token cleared', { 'zh-TW': '已清除權杖', 'zh-CN': '已清除令牌' }],
+  ['Disconnect', { 'zh-TW': '中斷連線', 'zh-CN': '断开连接' }],
+  ['Back to issues', { 'zh-TW': '返回問題列表', 'zh-CN': '返回问题列表' }],
+  ['Search projects', { 'zh-TW': '搜尋專案', 'zh-CN': '搜索项目' }],
+  ['Projects', { 'zh-TW': '專案', 'zh-CN': '项目' }],
+  ['No matching projects.', { 'zh-TW': '沒有符合的專案。', 'zh-CN': '没有匹配的项目。' }],
+  ['Back', { 'zh-TW': '返回', 'zh-CN': '返回' }],
+  ['Open original', { 'zh-TW': '開啟原始內容', 'zh-CN': '打开原始内容' }],
+  ['No section', { 'zh-TW': '未分組', 'zh-CN': '未分组' }],
+  ['Assignee', { 'zh-TW': '負責人', 'zh-CN': '负责人' }],
+  ['Unassigned', { 'zh-TW': '未指派', 'zh-CN': '未分配' }],
+  ['Due date', { 'zh-TW': '到期日', 'zh-CN': '截止日期' }],
+  ['Project', { 'zh-TW': '專案', 'zh-CN': '项目' }],
+  ['Description', { 'zh-TW': '描述', 'zh-CN': '描述' }],
+  ['No description.', { 'zh-TW': '沒有描述。', 'zh-CN': '没有描述。' }],
+  ['Subtasks', { 'zh-TW': '子任務', 'zh-CN': '子任务' }],
+  ['No open subtasks.', { 'zh-TW': '沒有未完成的子任務。', 'zh-CN': '没有未完成的子任务。' }],
+  ['Comments', { 'zh-TW': '留言', 'zh-CN': '评论' }],
+  ['No comments.', { 'zh-TW': '沒有留言。', 'zh-CN': '没有评论。' }],
+  ['Preview shortened. Open original for the full content.', { 'zh-TW': '預覽已截短。開啟原始內容可查看全文。', 'zh-CN': '预览已截短。打开原始内容可查看全文。' }],
+  ['Mine', { 'zh-TW': '我的', 'zh-CN': '我的' }],
+  ['All', { 'zh-TW': '全部', 'zh-CN': '全部' }],
+  ['Load more', { 'zh-TW': '載入更多', 'zh-CN': '加载更多' }],
+  ['Loading', { 'zh-TW': '載入中', 'zh-CN': '正在加载' }],
+  ['{count} subtask', { 'zh-TW': '{count} 個子任務', 'zh-CN': '{count} 个子任务' }],
+  ['{count} subtasks', { 'zh-TW': '{count} 個子任務', 'zh-CN': '{count} 个子任务' }],
+  ['Connect an API token first.', { 'zh-TW': '請先設定 API 權杖。', 'zh-CN': '请先设置 API 令牌。' }],
+  ['Settings are being saved. Please wait.', { 'zh-TW': '正在儲存設定，請稍候。', 'zh-CN': '正在保存设置，请稍候。' }],
+  ['Enter a valid API token.', { 'zh-TW': '請輸入有效的 API 權杖。', 'zh-CN': '请输入有效的 API 令牌。' }],
+  ['Server URL', { 'zh-TW': '伺服器網址', 'zh-CN': '服务器地址' }],
+  ['HTTP sends your token unencrypted. Use HTTPS when available.', { 'zh-TW': 'HTTP 會以未加密的方式傳送權杖。若支援 HTTPS，請使用 HTTPS。', 'zh-CN': 'HTTP 会以未加密的方式发送令牌。如支持 HTTPS，请使用 HTTPS。' }],
+  ['API token', { 'zh-TW': 'API 權杖', 'zh-CN': 'API 令牌' }],
+  ['Priority', { 'zh-TW': '優先順序', 'zh-CN': '优先级' }],
+  ['Severity', { 'zh-TW': '嚴重程度', 'zh-CN': '严重程度' }],
+  ['Category', { 'zh-TW': '類別', 'zh-CN': '类别' }],
+  ['Resolution', { 'zh-TW': '處理結果', 'zh-CN': '处理结果' }],
+  ['Reproducibility', { 'zh-TW': '重現程度', 'zh-CN': '复现程度' }],
+  ['Reporter', { 'zh-TW': '回報者', 'zh-CN': '报告人' }],
+  ['Visibility', { 'zh-TW': '可見範圍', 'zh-CN': '可见范围' }],
+  ['Created', { 'zh-TW': '建立時間', 'zh-CN': '创建时间' }],
+  ['Updated', { 'zh-TW': '更新時間', 'zh-CN': '更新时间' }],
+  ['Attachments', { 'zh-TW': '附件', 'zh-CN': '附件' }],
+  ['Tags', { 'zh-TW': '標籤', 'zh-CN': '标签' }],
+  ['Choose MantisBT project', { 'zh-TW': '選擇 MantisBT 專案', 'zh-CN': '选择 MantisBT 项目' }],
+  ['Filter issues', { 'zh-TW': '篩選問題', 'zh-CN': '筛选问题' }],
+  ['{count} notes', { 'zh-TW': '{count} 則備註', 'zh-CN': '{count} 条备注' }],
+  ['No issues found.', { 'zh-TW': '找不到問題。', 'zh-CN': '找不到问题。' }],
+  ['Workspace list is incomplete. Cannot safely bind a MantisBT project.', { 'zh-TW': '工作區清單不完整，無法綁定 MantisBT 專案。', 'zh-CN': '工作区列表不完整，无法绑定 MantisBT 项目。' }],
+  ['Workspace changed. Reopen MantisBT.', { 'zh-TW': '工作區已切換，請重新開啟 MantisBT。', 'zh-CN': '工作区已切换，请重新打开 MantisBT。' }],
+  ['Project list is incomplete. Cannot safely bind a MantisBT project.', { 'zh-TW': '專案清單不完整，無法綁定 MantisBT 專案。', 'zh-CN': '项目列表不完整，无法绑定 MantisBT 项目。' }],
+  ['Workspace project is unavailable. Reopen MantisBT.', { 'zh-TW': '無法存取工作區專案，請重新開啟 MantisBT。', 'zh-CN': '无法访问工作区项目，请重新打开 MantisBT。' }],
+  ['Saved connection is invalid. Replace it in Settings.', { 'zh-TW': '已儲存的連線無效，請在設定中更新連線資訊。', 'zh-CN': '已保存的连接无效，请在设置中更新连接信息。' }],
+  ['Workspace or server changed. Choose the project again.', { 'zh-TW': '工作區或伺服器已變更，請重新選擇專案。', 'zh-CN': '工作区或服务器已更改，请重新选择项目。' }],
+  ['Invalid MantisBT view.', { 'zh-TW': '無效的 MantisBT 檢視。', 'zh-CN': '无效的 MantisBT 视图。' }],
+  ['The server did not return a MantisBT user. Check the server URL.', { 'zh-TW': '伺服器未回傳 MantisBT 使用者資料。請檢查伺服器網址。', 'zh-CN': '服务器未返回 MantisBT 用户数据。请检查服务器地址。' }],
+  ['The server did not return MantisBT projects. Check the server URL.', { 'zh-TW': '伺服器未回傳 MantisBT 專案。請檢查伺服器網址。', 'zh-CN': '服务器未返回 MantisBT 项目。请检查服务器地址。' }],
+  ['MantisBT did not return its resolved status setting.', { 'zh-TW': 'MantisBT 未回傳問題解決狀態的設定。', 'zh-CN': 'MantisBT 未返回问题解决状态设置。' }],
+  ['The server did not return this MantisBT project.', { 'zh-TW': '伺服器未回傳這個 MantisBT 專案。', 'zh-CN': '服务器未返回此 MantisBT 项目。' }],
+  ['The server did not return MantisBT issues.', { 'zh-TW': '伺服器未回傳 MantisBT 問題。', 'zh-CN': '服务器未返回 MantisBT 问题。' }],
+  ['The server did not return this MantisBT issue.', { 'zh-TW': '伺服器未回傳這個 MantisBT 問題。', 'zh-CN': '服务器未返回此 MantisBT 问题。' }],
+  ['Enter a MantisBT server URL, such as https://mantis.example.com.', { 'zh-TW': '請輸入 MantisBT 伺服器網址，例如 https://mantis.example.com。', 'zh-CN': '请输入 MantisBT 服务器地址，例如 https://mantis.example.com。' }],
+  ['Invalid MantisBT API path.', { 'zh-TW': '無效的 MantisBT API 路徑。', 'zh-CN': '无效的 MantisBT API 路径。' }],
+  ['Could not reach the API. Check the server address, network and TLS certificate.', { 'zh-TW': '無法連線至 API。請檢查伺服器位址、網路和 TLS 憑證。', 'zh-CN': '无法连接 API。请检查服务器地址、网络和 TLS 证书。' }],
+  ['Issue or project not found.', { 'zh-TW': '找不到問題或專案。', 'zh-CN': '找不到问题或项目。' }],
+  ['API token rejected or access denied. Check the token and account permissions.', { 'zh-TW': 'API 權杖遭拒或無法存取，請檢查權杖和帳號權限。', 'zh-CN': 'API 令牌被拒绝或无法访问，请检查令牌和账号权限。' }],
+  ['API rate limit reached. Wait before refreshing.', { 'zh-TW': '已達 API 請求頻率上限，請稍候再重新整理。', 'zh-CN': '已达到 API 请求频率上限，请稍后刷新。' }],
+  ['API request failed ({status}).', { 'zh-TW': 'API 請求失敗（{status}）。', 'zh-CN': 'API 请求失败（{status}）。' }],
+  ['The MantisBT API returned an empty response.', { 'zh-TW': 'MantisBT API 回傳空白回應。', 'zh-CN': 'MantisBT API 返回了空响应。' }],
+  ['Could not finish reading the MantisBT API response. Check the network and try again.', { 'zh-TW': '無法完整讀取 MantisBT API 回應。請檢查網路後再試。', 'zh-CN': '无法完整读取 MantisBT API 响应。请检查网络后重试。' }],
+  ['The MantisBT API response exceeded {limit} MiB.', { 'zh-TW': 'MantisBT API 回應超過 {limit} MiB。', 'zh-CN': 'MantisBT API 响应超过 {limit} MiB。' }],
+  ['The MantisBT API returned HTML. Check the server URL and any proxy or sign-in page in front of the API.', { 'zh-TW': 'MantisBT API 回傳了 HTML。請檢查伺服器網址、代理伺服器與登入頁面。', 'zh-CN': 'MantisBT API 返回了 HTML。请检查服务器地址、代理服务器与登录页面。' }],
+  ['The server did not return valid API JSON.', { 'zh-TW': '伺服器未回傳有效的 API JSON。', 'zh-CN': '服务器未返回有效的 API JSON。' }],
+  ['The MantisBT API returned an unexpected JSON response.', { 'zh-TW': 'MantisBT API 回傳了格式不符的 JSON。', 'zh-CN': 'MantisBT API 返回了格式不符的 JSON。' }],
+  ['Invalid MantisBT ID.', { 'zh-TW': '無效的 MantisBT ID。', 'zh-CN': '无效的 MantisBT ID。' }],
+  ['MantisBT project not found.', { 'zh-TW': '找不到 MantisBT 專案。', 'zh-CN': '找不到 MantisBT 项目。' }],
+  ['Invalid issues cursor.', { 'zh-TW': '無效的問題分頁位置。', 'zh-CN': '无效的问题分页位置。' }],
+  ['This issue was resolved or deleted in MantisBT.', { 'zh-TW': '這個問題已在 MantisBT 解決或刪除。', 'zh-CN': '此问题已在 MantisBT 解决或删除。' }],
+  ['The API redirected the request. Enter the final server URL; tokens are never forwarded to redirects.', { 'zh-TW': 'API 重新導向了請求。請輸入最終伺服器網址，權杖不會傳送到重新導向的位址。', 'zh-CN': 'API 重定向了请求。请输入最终服务器地址，令牌不会发送到重定向地址。' }],
+])
+
+export function localeOf(locale: string | undefined) {
+  const tag = (locale || '').toLowerCase().replaceAll('_', '-')
+  if (/^zh-(hant|tw|hk|mo)(-|$)/.test(tag)) return 'zh-TW'
+  if (/^zh(-|$)/.test(tag)) return 'zh-CN'
+  return 'en'
+}
+
+export function translate(source: string, locale: ReturnType<typeof localeOf>, values?: Record<string, number>) {
+  const entry = messages.get(source)
+  const message = entry && locale !== 'en' ? entry[locale] : source
+  return values ? message.replace(/\{(\w+)\}/g, (token, key) => String(values[key] ?? token)) : message
+}
+
+export function translateError(source: string, locale: ReturnType<typeof localeOf>) {
+  const status = /^API request failed \((\d+)\)\.$/.exec(source)
+  if (status) return translate('API request failed ({status}).', locale, { status: Number(status[1]) })
+  const limit = /^The MantisBT API response exceeded (\d+) MiB\.$/.exec(source)
+  if (limit) return translate('The MantisBT API response exceeded {limit} MiB.', locale, { limit: Number(limit[1]) })
+  return translate(source, locale)
+}

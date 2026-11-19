@@ -1,6 +1,22 @@
 import { assert, mockHost, mount, test } from 'orca/testing'
 import * as panel from './panel'
 import { connected, requests, projects, detail } from './fixtures'
+
+test('renders Traditional Chinese labels and dates while keeping Asana content verbatim', async () => {
+  const date = '2026-11-19'
+  const view = await mount(panel, { locale: 'zh-Hant-TW', host: mockHost({ requests: {
+    ...requests, 'connection.read': () => ({ ...connected, binding: projects.items[0] }),
+    'issues.detail': () => ({ ...detail, due: date, section: 'No section' }),
+  } }) })
+  assert.ok(view.find({ label: '篩選任務' }))
+  await view.press({ label: 'Fix login redirect' })
+  assert.ok(view.find({ text: '到期日' }))
+  assert.ok(view.find({ text: new Date(date + 'T12:00:00').toLocaleDateString('zh-TW', { year: 'numeric', month: 'short', day: 'numeric' }) }))
+  assert.ok(view.find({ type: 'Badge', text: 'No section' }))
+  assert.ok(view.find({ text: 'Reproduced in the latest version.' }))
+  await view.unmount()
+})
+
 test('token settings save on submit without Connect, then wait for an explicit project choice', async () => {
   let bindings = 0, saved: unknown
   const view = await mount(panel, { host: mockHost({ requests: {
@@ -65,7 +81,7 @@ test('task details and comments stay inside the plugin; browser opens only from 
   assert.equal(host.callsOf('shell.openExternal').length, 0)
   await view.press({ label: 'Open original' })
   assert.equal(host.callsOf('shell.openExternal').length, 1)
-  await view.press({ text: 'Back to issues' })
+  await view.press({ text: 'Back to tasks' })
   assert.equal(view.valueOf({ label: 'Filter tasks' }), 'login')
   await view.unmount()
 })

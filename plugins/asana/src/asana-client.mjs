@@ -4,7 +4,7 @@ const project = item => ({ id: String(item.gid), name: item.name, workspaceId: i
 const task = item => ({
   id: item.gid, title: item.name, url: /^https:\/\/app\.asana\.com\//.test(item.url || '') ? item.url : '',
   status: item.completed ? 'Completed' : 'Open', assignee: item.assignee || '', assigneeId: item.assigneeGid || '',
-  section: item.section || 'No section', due: item.due || '', subtasks: item.subtasks || 0,
+  section: item.section || '', due: item.due || '', subtasks: item.subtasks || 0,
   customFields: (item.customFields || []).map(field => ({ id: field.gid, name: field.name, type: field.type, displayValue: field.displayValue, color: field.value?.color || '' })),
   parent: item.parent && typeof item.parent === 'object' ? { id: item.parent.gid, title: item.parent.name } : null,
 })
