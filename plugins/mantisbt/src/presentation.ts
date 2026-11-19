@@ -1,4 +1,19 @@
 import type { Issue } from './protocol'
+
+const statusColors = new Map([
+  ['new', '#fcbdbd'], ['feedback', '#e3b7eb'], ['acknowledged', '#ffcd85'],
+  ['confirmed', '#fff494'], ['assigned', '#c2dfff'], ['resolved', '#d2f5b0'],
+  ['closed', '#c9ccc4'],
+])
+
+export function statusColor(issue: Issue) {
+  const color = typeof issue.statusColor === 'string' ? issue.statusColor.trim() : ''
+  if (color && /^#(?:[\da-f]{3}|[\da-f]{6})$/i.test(color)) return color
+  return statusColors.get((issue.statusName || issue.section || issue.status).toLowerCase()) || '#e4e4e4'
+}
+
+export function issueNumber(id: string) { return id.padStart(7, '0') }
+
 export function statusTone(item?: Issue): Tone {
   const name = (item?.statusName || item?.section || item?.status || '').toLowerCase()
   if (/resolved|closed|已解決|已關閉/.test(name)) return 'success'

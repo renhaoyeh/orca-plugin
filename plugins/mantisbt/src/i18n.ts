@@ -1,4 +1,13 @@
 const messages = new Map([
+  ['Issue views', { 'zh-TW': '問題檢視', 'zh-CN': '问题视图' }],
+  ['Assigned to Me', { 'zh-TW': '指派給我的問題', 'zh-CN': '分配给我的问题' }],
+  ['Viewing Issues', { 'zh-TW': '問題清單', 'zh-CN': '问题列表' }],
+  ['View Issue Details', { 'zh-TW': '問題詳情', 'zh-CN': '问题详情' }],
+  ['Summary', { 'zh-TW': '摘要', 'zh-CN': '摘要' }],
+  ['Status', { 'zh-TW': '狀態', 'zh-CN': '状态' }],
+  ['Relationships', { 'zh-TW': '關聯問題', 'zh-CN': '关联问题' }],
+  ['Activities', { 'zh-TW': '活動紀錄', 'zh-CN': '活动记录' }],
+  ['No issues match this filter.', { 'zh-TW': '沒有符合篩選條件的問題。', 'zh-CN': '没有符合筛选条件的问题。' }],
   ['Refresh', { 'zh-TW': '重新整理', 'zh-CN': '刷新' }],
   ['Connection settings', { 'zh-TW': '連線設定', 'zh-CN': '连接设置' }],
   ['Replace saved token', { 'zh-TW': '更換已儲存的權杖', 'zh-CN': '更换已保存的令牌' }],

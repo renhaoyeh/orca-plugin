@@ -1,7 +1,8 @@
 # MantisBT
 
-Read-only native Orca sidebar, with the original herdr-zed MantisBT source data flow.
-Requires Orca 1.4.259+; no HTML-panel/layout conversion.
+Read-only MantisBT browser in Orca's right sidebar. Its light palette, blue
+widget headers, issue table, and activities use herdr-zed's MantisBT styling
+adapted for the sidebar width. Requires Orca 1.4.259+.
 
 ## Flow
 
@@ -21,9 +22,10 @@ Requires Orca 1.4.259+; no HTML-panel/layout conversion.
 - Mine sends Mantis `filter_id=assigned` and follows every page. All loads original
   20-record server pages with Load more. Both retain exact project membership and use
   the server's `bug_resolved_status_threshold`, not a guessed hardcoded resolved status.
-  An empty filtered page may still have a next page. Tab preference persists; page caches
-  are separate and in-memory only, invalidated by refresh/reconnect/workspace changes.
-- Group by Mantis status. Rows include ID, assignee, category, severity, colored priority,
+  An empty filtered page may still have a next page. Tab preference persists.
+  The panel keeps separate Mine/All pages. The worker shares recent issue, detail,
+  and relationship reads across sidebar opens and clears them on refresh or reconnect.
+- Collapsible groups follow Mantis status. Rows include a zero-padded ID, assignee, category, severity, colored priority,
   note count, updated/due dates and child count when available. Text filters the loaded
   issue ID/title/assignee/status/category; it is not a full server text search.
 - Internal details include status, priority, severity, category, resolution, reproducibility,
@@ -34,13 +36,12 @@ Requires Orca 1.4.259+; no HTML-panel/layout conversion.
   inside the plugin; child reads exclude resolved/deleted issues. Back restores prior
   detail/list context. Only Open original launches the browser.
 
-Colors use Orca theme semantic tones, not exact arbitrary Mantis RGB swatches. The source
-status color/name/ID are retained for future richer rendering. Source resolution policy is
-independent of display colors. Attachment bodies/images are not downloaded; only counts
+Status swatches use the configured server color when it supplies a hexadecimal color,
+with standard Mantis colors as fallbacks. Attachment bodies/images are not downloaded; only counts
 are shown. Notes are bounded to 16,000 characters and the first 30 comments to 1,500
 characters each, with a shortening notice. History is in memory and limited to 30 steps.
 
-Not ported: Board/table layouts, in-list child expansion, configurable field visibility/order,
+Not ported: wide table and board layouts, in-list child expansion, configurable field visibility/order,
 remembered selected issue, original on-disk issue caches, attachment downloads or Tasks import.
 No remote writes, agents, dispatch or terminal operations.
 
@@ -75,7 +76,7 @@ orca plugin check ./plugins/mantisbt --json
 orca plugin dev reload ./plugins/mantisbt --json
 ```
 
-Tests use mock HTTP, host context, encrypted storage and native panel interactions.
+Tests use mock HTTP, host context, encrypted storage and sidebar state transitions.
 They cover flat `/users/me`, nested projects, non-default resolved thresholds, exact
 membership, assigned-filter pagination, typed dates, details/comments/relationships,
 server-scoped bindings, offline saving, response limits and safe errors.

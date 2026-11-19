@@ -1,8 +1,27 @@
 import { assert, mockHost, mountWorker, test } from 'orca/testing'
 import { createWorker } from './worker'
-const fake = { subtasks: async () => [], validate: async () => { throw Error('Saving must not contact the offline server') }, projects: async () => ({ items: [], next: null }), issues: async () => ({ items: [], next: null }), detail: async () => ({}), projectInfo: async (id: string) => ({ id, name: 'MantisBT project', workspaceId: id }) }
+import { detail } from './fixtures'
+const fake = { subtasks: async () => [], validate: async () => { throw Error('Saving must not contact the offline server') }, projects: async () => ({ items: [], next: null }), issues: async () => ({ items: [], next: null }), detail: async () => detail, projectInfo: async (id: string) => ({ id, name: 'MantisBT project', workspaceId: id }) }
 const input = { url: 'https://mantis.example.test', token: 'test-only-token' }
 const capabilities = ['secrets:own', 'storage:own', 'workspace:read']
+test('shares reads across sidebar opens and drops them on refresh or server change', async () => {
+  let loads = 0
+  const host = mockHost({ capabilities, secrets: { 'connection.v1': JSON.stringify(input) } })
+  const worker = await mountWorker({ default: createWorker(() => ({
+    ...fake, detail: async () => { loads++; return detail },
+  }), async () => 'repo-a') }, { host })
+  const task = { id: '42' }
+  await Promise.all([worker.request('issues.detail', task), worker.request('issues.detail', task)])
+  await worker.request('connection.read')
+  await worker.request('issues.detail', task)
+  assert.equal(loads, 1)
+  await worker.request('data.refresh')
+  await worker.request('issues.detail', task)
+  await worker.request('connection.save', { ...input, url: 'https://other.example.test' })
+  await worker.request('issues.detail', task)
+  assert.equal(loads, 3)
+  await worker.deactivate()
+})
 test('offline settings save only to encrypted secrets and never return the token', async () => {
   const host = mockHost({ capabilities })
   const worker = await mountWorker({ default: createWorker(() => fake, async () => 'repo-a') }, { host })

@@ -19,6 +19,7 @@ export function mantisClient(_kind, config, request = fetch) {
       if (!item || String(item.id) !== gid) throw Error('MantisBT project not found.')
       return project({ gid, name: item.name })
     },
+    /** @param {string | null} cursor */
     async issues(gid, cursor = null, tab = 'mine') {
       gid = id(gid)
       if (cursor !== null && (!/^\d+$/.test(String(cursor)) || !Number.isSafeInteger(Number(cursor)) || Number(cursor) < 1)) throw Error('Invalid issues cursor.')

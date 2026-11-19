@@ -2,12 +2,13 @@
   "manifestVersion": 2,
   "id": "mantisbt",
   "name": "MantisBT",
+  "icon": "assets/mantisbt.png",
   "version": "0.1.0",
   "description": "Connect an API token and browse MantisBT project issues. Read-only.",
   "engines": { "orca": ">=1.4.259" },
   "execution": "trusted-worker",
   "pluginApi": 1,
   "main": "src/worker.ts",
-  "contributes": { "panels": [{ "id": "issues", "title": "MantisBT", "icon": "bug", "entry": "src/panel.tsx", "ui": "components" }] },
+  "contributes": { "panels": [{ "id": "issues", "title": "MantisBT", "icon": "bug", "entry": "src/panel.html", "ui": "html" }] },
   "capabilities": [{ "kind": "secrets:own" }, { "kind": "storage:own" }, { "kind": "workspace:read" }]
 }
