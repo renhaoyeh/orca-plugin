@@ -133,6 +133,11 @@ function fieldContent(issue: Issue, id: string, surface: FieldSurface): (Node | 
     const field = issue.customFields?.find(field => field.id === id.slice(7))
     if (!field) return []
     const { displayValue, type, color } = field
+    if (/^for\s+(pm|rd|qa)$/i.test(field.name.trim()) && /^={2,}$/.test(displayValue.trim())) {
+      const rule = element('span', 'field-divider')
+      rule.setAttribute('aria-hidden', 'true')
+      return [rule]
+    }
     if (isPmPriority(field)) {
       const value = priorityLabel(displayValue)
       if (!value) return surface === 'detail' ? ['—'] : []
@@ -411,7 +416,15 @@ function details(entry: IssueDetail) {
   for (const field of fieldOptions('detail', entry.customFields ?? [], state.fieldLayout.detail)) {
     if (!field.visible) continue
     const value = fieldContent(entry, field.id, 'detail')
-    if (value.length) meta.append(element('dt', '', field.id.startsWith('custom:') ? field.name : t(field.name)), element('dd', '', ...value))
+    if (!value.length) continue
+    const label = element('dt', '', field.id.startsWith('custom:') ? field.name : t(field.name))
+    const cell = element('dd', '', ...value)
+    if (cell.firstElementChild?.classList.contains('field-divider')) {
+      cell.setAttribute('aria-hidden', 'true')
+      meta.append(element('div', 'detail-section-divider', label, cell))
+    } else {
+      meta.append(element('div', 'detail-field', label, cell))
+    }
   }
   content.append(header, meta, element('section', 'description', element('h2', '', t('Description')),
     element('p', entry.description ? 'body-copy' : 'muted', entry.description || t('No description.'))))

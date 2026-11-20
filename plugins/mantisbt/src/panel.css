@@ -125,6 +125,10 @@ button.section-toggle:hover { background: var(--breadcrumb); }
 .row-meta > span { overflow-wrap: anywhere; }
 .row-field { display: inline-flex; align-items: center; flex-wrap: wrap; gap: 3px; min-width: 0; }
 .row-field-name { font-weight: 600; }
+.row-field:has(.field-divider) { flex: 1 0 100%; flex-wrap: nowrap; gap: 8px; }
+.row-field:has(.field-divider) > .row-field-name { flex: 0 0 auto; }
+.field-divider, .row-field:has(.field-divider)::before, .detail-section-divider::before { display: block; flex: 1 1 0; min-width: 0; border-block-start: 3px double var(--table-rule); }
+.row-field:has(.field-divider)::before, .detail-section-divider::before { content: ''; }
 .priority-value { display: inline-flex; align-items: center; gap: 5px; min-width: 0; max-width: 100%; padding: 0 6px; border: 1px solid color-mix(in srgb, var(--priority-color) 35%, white); border-radius: 4px; background: color-mix(in srgb, var(--priority-color) 10%, white); color: var(--text); font-size: 12px; font-weight: 600; overflow-wrap: anywhere; }
 .priority-value::before { content: ''; flex: 0 0 7px; height: 7px; border-radius: 50%; background: var(--priority-color); border: 1px solid #0003; }
 .subtask-count { display: inline-flex; align-items: center; gap: 2px; }
@@ -152,6 +156,10 @@ button.section-toggle:hover { background: var(--breadcrumb); }
 .metadata dt, .metadata dd, .description > * { min-width: 0; padding: 5px 7px; border-bottom: 1px solid var(--table-rule); overflow-wrap: anywhere; }
 .metadata dt, .description h2 { background: var(--category); border-inline-end: 1px solid var(--table-rule); font-weight: 600; }
 .metadata dd { display: flex; align-items: center; gap: 5px; flex-wrap: wrap; }
+.detail-field { display: contents; }
+.detail-section-divider { grid-column: 1 / -1; display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; gap: 8px; min-width: 0; padding: 5px 9px; border-bottom: 1px solid var(--table-rule); background: var(--category); color: var(--accent); }
+.detail-section-divider dt, .detail-section-divider dd { padding: 0; border: 0; background: transparent; }
+.detail-section-divider::before, .detail-section-divider .field-divider { border-color: currentColor; opacity: .4; }
 .description > * { border-bottom: 0; }
 .tone-danger { color: var(--danger); }
 .tone-warning { color: var(--warning); }
