@@ -18,6 +18,16 @@ function createModel(overrides: MockRequests = {}) {
 const project = projects.items[0]
 const bound = { ...connected, binding: project }
 
+test('the default list shows the project PM Priority rather than severity, with saved overrides', () => {
+  const custom = [{ id: '57', name: 'PM Priority for CC4 & IC8' }, { id: '58', name: 'PM Priority for CC5' }]
+  const visible = fieldOptions('list', custom).filter(field => field.visible).map(field => field.id)
+  assert.deepEqual(visible, ['id', 'custom:57', 'status', 'due', 'assignee'])
+  const saved = fieldOptions('list', custom, [{ id: 'severity', visible: true }, { id: 'custom:57', visible: false }])
+  assert.equal(saved.find(field => field.id === 'severity')?.visible, true)
+  assert.equal(saved.find(field => field.id === 'custom:57')?.visible, false)
+  assert.equal(fieldOptions('detail', []).find(field => field.id === 'severity')?.visible, true)
+})
+
 test('field preferences restore, keep independent order and expose new project fields', async () => {
   const list = [{ id: 'custom:version', visible: true }, { id: 'category', visible: false }]
   const model = createModel({

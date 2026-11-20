@@ -9,17 +9,29 @@ function issue(item) {
     parent: parent && typeof parent === 'object' ? { id: parent.gid, title: parent.name } : null }
 }
 export function mantisClient(_kind, config, request = fetch) {
+  async function projectRecord(gid) {
+    const body = await api.getProject(config, gid, request)
+    const item = body.projects?.find(item => String(item.id) === gid) || body.project
+    if (!item || String(item.id) !== gid) throw Error('MantisBT project not found.')
+    return item
+  }
   return {
     validate: () => source.validateConnection(config, request),
     async projectFields(gid) {
-      return (await source.projectFields(config, id(gid), request)).map(field => ({ id: field.gid, name: field.name }))
+      const item = await projectRecord(id(gid))
+      return (item.custom_fields || []).map(entry => {
+        const options = entry.possible_values ?? entry.field?.possible_values
+        const values = typeof options === 'string' ? options.split('|') : Array.isArray(options) ? options : []
+        return {
+          id: String(entry.field?.id ?? entry.id), name: entry.field?.name || entry.name || 'Custom field',
+          choices: values.filter(value => typeof value === 'string').map(value => value.trim()).filter(Boolean),
+        }
+      })
     },
     async projects(_cursor = null, query = '') { return { items: (await source.searchProjects(config, query, request)).map(project), next: null } },
     async projectInfo(gid) {
       gid = id(gid)
-      const body = await api.getProject(config, gid, request)
-      const item = body.projects?.find(item => String(item.id) === gid) || body.project
-      if (!item || String(item.id) !== gid) throw Error('MantisBT project not found.')
+      const item = await projectRecord(gid)
       return project({ gid, name: item.name })
     },
     /** @param {string | null} cursor */

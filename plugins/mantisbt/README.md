@@ -30,7 +30,12 @@ adapted for the sidebar width. Requires Orca 1.4.259+.
   to the loaded issues. Select multiple values within Reporter, Assignee, Status,
   Category, Priority or Severity and combine filters across those fields.
 - Field display saves visibility and order separately for list fields and issue
-  details for each Mantis server and project. Both views support project custom fields.
+  details for each Mantis server and project. The default list shows the issue
+  number, title, status, assignee, due date when set and the `PM Priority for CC4 & IC8`
+  custom field when available. Its value appears beside the issue number in the
+  default list and in the field section of issue details. Under Field display → PM Priority colors,
+  set or reset colors for the numbered levels 00–12 and any additional project values.
+  Both views support project custom fields.
 - Internal details include status, priority, severity, category, resolution, reproducibility,
   reporter, visibility, project, dates, tags, attachment count and custom fields. Original
   project field definitions type custom values and convert timestamp date fields.

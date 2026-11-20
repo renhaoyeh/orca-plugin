@@ -1,6 +1,7 @@
 import { assert, mockHost, mountWorker, test } from 'orca/testing'
 import { createWorker } from './worker'
 import { detail } from './fixtures'
+import { pmPriorityOptions, priorityColor, priorityLabel } from './fields'
 const fake = { subtasks: async () => [], validate: async () => { throw Error('Saving must not contact the offline server') }, projects: async () => ({ items: [], next: null }), issues: async () => ({ items: [], next: null }), detail: async () => detail, projectInfo: async (id: string) => ({ id, name: 'MantisBT project', workspaceId: id }), projectFields: async () => detail.customFields }
 const input = { url: 'https://mantis.example.test', token: 'test-only-token' }
 const capabilities = ['secrets:own', 'storage:own', 'workspace:read']
@@ -30,6 +31,16 @@ test('field layouts are independent per MantisBT project and server', async () =
   assert.equal((await worker.request('fields.catalog', project))[0].name, 'Target version')
   await worker.request('fields.save', { ...project, layout })
   assert.deepEqual(await worker.request('fields.read', project), layout)
+  await worker.request('fields.save', { ...project, layout: { ...layout, priorityColors: [
+    { value: ' 02. 緊急 (Urgent) ', color: '#8844CC' }, { value: 'invalid', color: 'transparent' },
+  ] } })
+  const saved = await worker.request('fields.read', project)
+  assert.deepEqual(saved, { ...layout, priorityColors: [{ value: '02', color: '#8844cc' }] })
+  assert.equal(priorityColor('02. 緊急 (Urgent)', saved.priorityColors), '#8844cc')
+  assert.equal(priorityColor('2', saved.priorityColors), '#8844cc')
+  assert.equal(priorityLabel('3'), '03. 高 (High)')
+  assert.equal(pmPriorityOptions.length, 13)
+  assert.notEqual(priorityColor(pmPriorityOptions[2]), priorityColor(pmPriorityOptions[4]))
   assert.deepEqual(await worker.request('fields.read', { ...project, project: '13' }), {})
   const url = 'https://other.example.test'
   await worker.request('connection.save', { ...input, url })

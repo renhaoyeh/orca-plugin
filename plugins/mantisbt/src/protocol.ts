@@ -4,9 +4,10 @@ export type Issue = { statusId?: number; statusName?: string; statusColor?: stri
 export type IssueDetail = Issue & { description: string; comments: { id: string; author: string; text: string; at?: string | null }[]; commentsError: string; truncated: boolean }
 export type Page<T> = { items: T[]; next: string | null }
 export type FieldSurface = 'list' | 'detail'
-export type FieldOption = { id: string; name: string }
+export type FieldOption = { id: string; name: string; choices?: string[] }
 export type FieldPreference = { id: string; visible: boolean }
-export type FieldLayout = Partial<Record<FieldSurface, FieldPreference[]>>
+export type PriorityColor = { value: string; color: string }
+export type FieldLayout = Partial<Record<FieldSurface, FieldPreference[]>> & { priorityColors?: PriorityColor[] }
 type FieldProject = { project: string; url: string }
 type IssueSelection = { project: string; scope: string }
 declare module 'orca' {

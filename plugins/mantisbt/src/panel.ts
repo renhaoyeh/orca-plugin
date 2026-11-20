@@ -1,6 +1,6 @@
 import type {} from 'orca/frame'
 import type { FieldLayout, FieldSurface, Issue, IssueDetail } from './protocol'
-import { fieldOptions } from './fields'
+import { fieldOptions, isPmPriority, pmPriorityOptions, priorityColor, priorityKey, priorityLabel } from './fields'
 import { localeOf, translate, translateError } from './i18n'
 import { statusColor, issueNumber, priorityTone, fieldTone, dueTone, dateLabel } from './presentation'
 import { createPanelState, filterFields, filterValue, type FilterKey } from './panel-state'
@@ -133,6 +133,14 @@ function fieldContent(issue: Issue, id: string, surface: FieldSurface): (Node | 
     const field = issue.customFields?.find(field => field.id === id.slice(7))
     if (!field) return []
     const { displayValue, type, color } = field
+    if (isPmPriority(field)) {
+      const value = priorityLabel(displayValue)
+      if (!value) return surface === 'detail' ? ['—'] : []
+      const badge = element('span', 'priority-value', value)
+      badge.title = field.name
+      badge.style.setProperty('--priority-color', priorityColor(value, state.fieldLayout.priorityColors))
+      return [badge]
+    }
     return ['enum', 'multi_enum'].includes(type) && displayValue
       ? [element('span', `tone-${fieldTone(color, displayValue)}`, displayValue)] : [displayValue || '—']
   }
@@ -163,22 +171,30 @@ function taskRow(issue: Issue) {
   row.disabled = state.busy
   const summary = element('span', 'task-summary', issue.title)
   const metadata = element('span', 'row-meta')
+  const identity = element('span', 'issue-identity')
   const layout = state.fieldLayout.list
+  if (!layout) identity.append(...fieldContent(issue, 'id', 'list'))
   for (const field of fieldOptions('list', issue.customFields ?? [], layout)) {
-    if (!field.visible || (!layout && ['id', 'status'].includes(field.id))) continue
+    if (!field.visible || (!layout && ['id', 'status', 'assignee'].includes(field.id))) continue
     const content = fieldContent(issue, field.id, 'list')
     if (content.length) {
+      if (!layout && isPmPriority(field)) {
+        identity.append(...content)
+        continue
+      }
       const cell = element('span', 'row-field', ...content)
-      if (layout) cell.prepend(element('span', 'row-field-name', field.id.startsWith('custom:') ? field.name : t(field.name)))
+      const isCustom = field.id.startsWith('custom:')
+      if (layout && !isPmPriority(field)) cell.prepend(element('span', 'row-field-name', isCustom ? field.name : t(field.name)))
       metadata.append(cell)
     }
   }
-  if (layout) {
-    row.classList.add('task-row--custom')
-    row.append(summary)
-  } else {
-    row.append(...fieldContent(issue, 'id', 'list'), summary, element('span', 'row-status', ...fieldContent(issue, 'status', 'list')))
+  if (!layout) {
+    const context = element('span', 'row-context',
+      element('span', 'row-status', ...fieldContent(issue, 'status', 'list')),
+      element('span', 'row-assignee', ...fieldContent(issue, 'assignee', 'list')))
+    row.append(element('span', 'row-topline', identity, context))
   }
+  row.append(summary)
   if (metadata.childElementCount) row.append(metadata)
   return row
 }
@@ -286,7 +302,6 @@ function issueFilters() {
 }
 
 function taskTable() {
-  const head = element('div', 'list-head', element('span', '', 'ID'), element('span', '', t('Summary')), element('span', '', t('Status')))
   const rows = element('div', 'task-groups')
   const filter = searchField(t('Filter issues'), model.setQuery)
   const filters = issueFilters()
@@ -309,7 +324,7 @@ function taskTable() {
   progress.setAttribute('role', 'status')
   const fetchControls = element('div', 'fetch-controls', fetchAll, stop, progress)
   const title = element('h1', 'widget-title')
-  const list = element('section', 'widget issue-widget', title, fetchControls, head, rows, more)
+  const list = element('section', 'widget issue-widget', title, fetchControls, rows, more)
   main.append(element('div', 'project-header', chooser), viewBar, element('div', 'filters',
     element('div', 'filter-toolbar', filter.form, toggleFilters, fields), filters.selection, filters.body), list)
   return () => {
@@ -330,7 +345,6 @@ function taskTable() {
     toggleFilters.textContent = selectionCount ? `${t('Filters')} (${selectionCount})` : t('Filters')
     toggleFilters.setAttribute('aria-expanded', String(state.filtersOpen))
     fields.disabled = state.busy || !state.project
-    head.hidden = !!state.fieldLayout.list
     more.hidden = !state.next || state.tab !== 'all'
     const words = state.query.toLowerCase().trim().split(/\s+/).filter(Boolean)
     const filtered = !!(words.length || selectedFilters.length)
@@ -446,6 +460,42 @@ function taskDetail() {
   }
 }
 
+function priorityColorSettings(draft: FieldLayout, changed: () => void) {
+  const rows = element('div', 'priority-color-rows')
+  const panel = element('details', 'priority-colors', element('summary', '', t('PM Priority colors')), rows)
+  return {
+    panel,
+    update(field: { id: string; name: string; choices?: string[] } | undefined, issues: Issue[]) {
+      panel.hidden = !field
+      if (!field) return
+      const values = new Map(pmPriorityOptions.map(value => [priorityKey(value), value]))
+      const loaded = issues.map(issue => issue.customFields?.find(custom => custom.id === field.id)?.displayValue ?? '')
+      for (const raw of [...(field.choices ?? []), ...loaded, ...(draft.priorityColors ?? []).map(entry => entry.value)]) {
+        const value = raw.trim()
+        const key = priorityKey(value)
+        if (value && !values.has(key)) values.set(key, value)
+      }
+      rows.replaceChildren(...Array.from(values, ([key, value]) => {
+        const picker = element('input', 'priority-color-input')
+        picker.type = 'color'
+        picker.value = priorityColor(value, draft.priorityColors)
+        picker.disabled = state.busy
+        picker.dataset.focus = `priority-color-${key}`
+        const set = (color?: string) => {
+          const colors = (draft.priorityColors ?? []).filter(entry => entry.value !== key)
+          draft.priorityColors = color ? [...colors, { value: key, color }] : colors
+          changed()
+        }
+        picker.addEventListener('change', () => set(picker.value))
+        const reset = button('view-button', () => set(), t('Default color'))
+        reset.setAttribute('aria-label', `${t('Default color')} · ${value}`)
+        reset.disabled = state.busy || !draft.priorityColors?.some(entry => entry.value === key)
+        return element('div', 'priority-color-row', element('label', '', picker, value), reset)
+      }))
+    },
+  }
+}
+
 function fieldEditor() {
   let surface: FieldSurface = state.detailId ? 'detail' : 'list'
   const draft: FieldLayout = { ...state.fieldLayout }
@@ -455,6 +505,7 @@ function fieldEditor() {
   const back = iconButton('back', t('Back'), model.closeFields)
   const retry = button('view-button', model.openFields, t('Retry'))
   const project = element('p', 'field-project', state.project?.name || '')
+  const priorityColors = priorityColorSettings(draft, () => { dirty = true; scheduleRender() })
   const tabs = (['list', 'detail'] as const).map(key => {
     const tab = button('view-button', () => { surface = key; scheduleRender() }, t(key === 'list' ? 'List fields' : 'Issue details'))
     return { key, tab }
@@ -466,7 +517,7 @@ function fieldEditor() {
   }, t('Restore default fields'))
   main.append(element('section', 'widget',
     element('div', 'widget-title', back, element('h1', '', t('Field display'))), project,
-    element('nav', 'view-bar', ...tabs.map(({ tab }) => tab)), rows,
+    element('nav', 'view-bar', ...tabs.map(({ tab }) => tab)), priorityColors.panel, rows,
     element('div', 'field-actions', retry, reset, save)))
   return () => {
     for (const { key, tab } of tabs) tab.setAttribute('aria-pressed', String(key === surface))
@@ -477,6 +528,8 @@ function fieldEditor() {
     const custom = state.fieldCatalog ?? Array.from(new Map(
       [...state.issues, ...(state.detail ? [state.detail] : [])].flatMap(issue => issue.customFields ?? []).map(field => [field.id, field]),
     ).values())
+    priorityColors.update(custom.find(isPmPriority),
+      state.detail ? [state.detail, ...state.issues] : state.issues)
     const options = fieldOptions(surface, custom, draft[surface])
     function change() {
       const known = new Set(options.map(field => field.id))

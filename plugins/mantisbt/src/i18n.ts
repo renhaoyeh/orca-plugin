@@ -1,4 +1,6 @@
 const messages = new Map([
+  ['PM Priority colors', { 'zh-TW': 'PM Priority 顏色', 'zh-CN': 'PM Priority 颜色' }],
+  ['Default color', { 'zh-TW': '恢復預設顏色', 'zh-CN': '恢复默认颜色' }],
   ['Fetch all issues', { 'zh-TW': '載入全部', 'zh-CN': '加载全部' }],
   ['Stop fetching', { 'zh-TW': '停止載入', 'zh-CN': '停止加载' }],
   ['Fetched {count} pages', { 'zh-TW': '已載入 {count} 頁', 'zh-CN': '已加载 {count} 页' }],
@@ -26,7 +28,6 @@ const messages = new Map([
   ['Issue views', { 'zh-TW': '問題檢視', 'zh-CN': '问题视图' }],
   ['Assigned to Me', { 'zh-TW': '指派給我的問題', 'zh-CN': '分配给我的问题' }],
   ['Viewing Issues', { 'zh-TW': '問題清單', 'zh-CN': '问题列表' }],
-  ['Summary', { 'zh-TW': '摘要', 'zh-CN': '摘要' }],
   ['Status', { 'zh-TW': '狀態', 'zh-CN': '状态' }],
   ['Relationships', { 'zh-TW': '關聯問題', 'zh-CN': '关联问题' }],
   ['Activities', { 'zh-TW': '活動紀錄', 'zh-CN': '活动记录' }],
