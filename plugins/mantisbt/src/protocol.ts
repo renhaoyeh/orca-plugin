@@ -8,6 +8,7 @@ export type FieldOption = { id: string; name: string }
 export type FieldPreference = { id: string; visible: boolean }
 export type FieldLayout = Partial<Record<FieldSurface, FieldPreference[]>>
 type FieldProject = { project: string; url: string }
+type IssueSelection = { project: string; scope: string }
 declare module 'orca' {
   interface PluginRequests {
     'connection.read': { output: ConnectionState }
@@ -22,6 +23,8 @@ declare module 'orca' {
     'fields.save': { input: FieldProject & { layout: FieldLayout }; output: FieldLayout }
     'issues.subtasks': { input: { id: string }; output: Issue[] }
     'issues.detail': { input: { id: string; project?: string }; output: IssueDetail }
+    'issues.selection.read': { input: IssueSelection; output: { id: string | null } }
+    'issues.selection.save': { input: IssueSelection & { id: string | null }; output: { ok: true } }
     'issues.list': { input: { project: string; cursor: string | null; tab?: 'mine' | 'all' }; output: Page<Issue> }
   }
 }

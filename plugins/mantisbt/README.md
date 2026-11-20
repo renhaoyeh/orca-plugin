@@ -37,7 +37,9 @@ adapted for the sidebar width. Requires Orca 1.4.259+.
 - Description includes reproduction steps and additional information. Comments retain
   authors/dates and original chronological ordering. Parent/child relationships navigate
   inside the plugin; child reads exclude resolved/deleted issues. Back restores prior
-  detail/list context. Only Open original launches the browser.
+  detail/list context. Reopening the sidebar restores the issue that was open for
+  that workspace, server and project. Returning to the list clears that selection.
+  From issue details, the issue number and Open original open the original issue in the browser.
 
 Status swatches use the configured server color when it supplies a hexadecimal color,
 with standard Mantis colors as fallbacks. Attachment bodies/images are not downloaded; only counts
@@ -45,7 +47,7 @@ are shown. Notes are bounded to 16,000 characters and the first 30 comments to 1
 characters each, with a shortening notice. History is in memory and limited to 30 steps.
 
 Not ported: wide table, in-list child expansion,
-remembered selected issue, original on-disk issue caches, attachment downloads or Tasks import.
+original on-disk issue caches, attachment downloads or Tasks import.
 No remote writes, agents, dispatch or terminal operations.
 
 ## Source and access
@@ -59,7 +61,7 @@ records for Orca. Do not replace these files with Asana's domain logic.
 The trusted Node worker requires:
 
 - `secrets:own`: encrypted `connection.v1`, retaining the original plugin/storage identity.
-- `storage:own`: nonsecret project bindings, Mine/All preference and field layouts.
+- `storage:own`: nonsecret project bindings, Mine/All preference, field layouts and the open issue ID.
 - `workspace:read`: repository/folder/host context; no project file reads are performed.
 
 Node fetch runs outside host capability enforcement, with the user's machine access.

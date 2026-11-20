@@ -32,6 +32,7 @@ export function createPanelState(request: PluginBridgeApi['request'], changed: (
   let workspaceChanged = false
   let connectionChanged = false
   let stopFetching = false
+  const pageKey = (project: string) => JSON.stringify([project, state.tab])
 
   function patch(values: Partial<typeof state>) {
     Object.assign(state, values)
@@ -81,7 +82,7 @@ export function createPanelState(request: PluginBridgeApi['request'], changed: (
   async function loadIssues(current: () => boolean, more = false) {
     const project = state.project?.id
     if (!project) return
-    const key = JSON.stringify([project, state.tab])
+    const key = pageKey(project)
     const cached = cache.get(key)
     if (!more && cached) {
       patch({ issues: cached.items, next: cached.next })
@@ -98,14 +99,50 @@ export function createPanelState(request: PluginBridgeApi['request'], changed: (
     return state.project && state.config ? { project: state.project.id, url: state.config.url } : null
   }
 
-  async function loadProject(current: () => boolean) {
+  async function loadFieldLayout(current: () => boolean) {
     const input = fieldProject()
     if (!input) return
-    const results = await Promise.allSettled([
-      loadIssues(current),
-      request('fields.read', input).then(fieldLayout => { if (current()) patch({ fieldLayout }) }),
-    ])
+    const fieldLayout = await request('fields.read', input)
+    if (current()) patch({ fieldLayout })
+  }
+
+  async function loadProject(current: () => boolean) {
+    const results = await Promise.allSettled([loadIssues(current), loadFieldLayout(current)])
     for (const result of results) if (result.status === 'rejected') throw result.reason
+  }
+
+  function selectionContext() {
+    const scope = state.config?.scope
+    return state.project && scope ? { scope, project: state.project.id } : null
+  }
+
+  async function saveSelection(id: string | null) {
+    const context = selectionContext()
+    if (!context) return
+    try { await request('issues.selection.save', { ...context, id }) }
+    catch (error) {
+      if (state.config?.scope === context.scope && state.project?.id === context.project && state.detailId === (id ?? '')) {
+        patch({ problem: error instanceof Error ? error.message : String(error) })
+      }
+    }
+  }
+
+  async function restoreProject(current: () => boolean) {
+    const context = selectionContext()
+    const { id } = context ? await request('issues.selection.read', context) : { id: null }
+    if (!current()) return
+    if (!id) return loadProject(current)
+    patch({ detailId: id })
+    const [detail, layout] = await Promise.allSettled([loadDetail(current, id), loadFieldLayout(current)])
+    if (!current()) return
+    if (detail.status === 'rejected') {
+      const reason = detail.reason
+      if (!(reason instanceof Error) || reason.message !== 'This issue was resolved or deleted in MantisBT.') throw reason
+      patch({ detailId: '' })
+      await Promise.all([saveSelection(null), loadIssues(current)])
+      if (current()) patch({ problem: reason.message })
+    }
+    if (layout.status === 'rejected') throw layout.reason
   }
 
   function openFields() {
@@ -134,7 +171,7 @@ export function createPanelState(request: PluginBridgeApi['request'], changed: (
       const saved = await request('project.bind', { scope, id: project.id })
       if (!current()) return
       patch({ project: saved, picker: false, query: '', issues: [], next: null, collapsedSections: new Set(), filters: {}, fieldLayout: {}, fieldCatalog: null })
-      await loadProject(current)
+      await restoreProject(current)
     })
   }
 
@@ -166,11 +203,14 @@ export function createPanelState(request: PluginBridgeApi['request'], changed: (
         detailId: id, detail: null, children: [],
         history: detail ? [...history.slice(-29), { detail, children }] : history,
       })
+      const saved = saveSelection(id)
       await loadDetail(current, id)
+      await saved
     })
   }
 
-  function back(toList = false) {
+  async function back(toList = false) {
+    const hadDetail = !!state.detailId
     const previous = toList ? undefined : state.history.at(-1)
     // Stop applying results from the task that just left the screen.
     generation++
@@ -178,7 +218,10 @@ export function createPanelState(request: PluginBridgeApi['request'], changed: (
       picker: false, busy: false, problem: '', history: toList ? [] : state.history.slice(0, -1),
       detailId: previous?.detail.id ?? '', detail: previous?.detail ?? null, children: previous?.children ?? [],
     })
-    if (workspaceChanged) void reload()
+    const saved = hadDetail ? saveSelection(previous?.detail.id ?? null) : undefined
+    if (workspaceChanged) await reload()
+    else if (hadDetail && !previous && state.project && !cache.has(pageKey(state.project.id))) await run(loadProject)
+    await saved
   }
 
   async function saveToken() {
@@ -195,7 +238,7 @@ export function createPanelState(request: PluginBridgeApi['request'], changed: (
         picker: !saved.binding, projects: [], projectQuery: '', query: '', issues: [], next: null,
         detailId: '', detail: null, children: [], history: [], collapsedSections: new Set(), filters: {}, fieldEditor: false, fieldLayout: {}, fieldCatalog: null,
       })
-      if (!state.settings) await loadCurrent(current)
+      if (!state.settings) await loadConnection(current)
     })
   }
 
@@ -213,6 +256,10 @@ export function createPanelState(request: PluginBridgeApi['request'], changed: (
   function loadCurrent(current: () => boolean) {
     if (state.detailId) return loadDetail(current, state.detailId)
     return state.picker ? loadProjects(current) : loadProject(current)
+  }
+
+  function loadConnection(current: () => boolean) {
+    return state.picker ? loadProjects(current) : restoreProject(current)
   }
 
   function reload(force = false) {
@@ -234,7 +281,7 @@ export function createPanelState(request: PluginBridgeApi['request'], changed: (
         detailId: '', detail: null, issues: [], next: null, query: '', children: [], history: [], collapsedSections: new Set(),
         filters: {}, fieldEditor: false, fieldLayout: {}, fieldCatalog: null,
       })
-      if (saved.configured) await loadCurrent(current)
+      if (saved.configured) await loadConnection(current)
     })
   }
 
@@ -254,7 +301,7 @@ export function createPanelState(request: PluginBridgeApi['request'], changed: (
     const reloadContent = connectionChanged
     connectionChanged = false
     if (workspaceChanged) return reload()
-    if (reloadContent) return run(loadCurrent)
+    if (reloadContent) return run(loadConnection)
   }
 
   function disconnect() {

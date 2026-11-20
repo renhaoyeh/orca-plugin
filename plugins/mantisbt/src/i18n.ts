@@ -10,8 +10,8 @@ const messages = new Map([
   ['No matching filter options.', { 'zh-TW': '沒有符合的選項。', 'zh-CN': '没有匹配的选项。' }],
   ['Remove filter', { 'zh-TW': '移除條件', 'zh-CN': '移除条件' }],
   ['{count} of {total} issues', { 'zh-TW': '符合 {count}／{total} 筆問題', 'zh-CN': '符合 {count}／{total} 条问题' }],
+  ['{count} of {total} loaded issues', { 'zh-TW': '已載入 {total} 筆，符合 {count} 筆', 'zh-CN': '已加载 {total} 条，符合 {count} 条' }],
   ['Reset filters', { 'zh-TW': '清除篩選', 'zh-CN': '清除筛选' }],
-  ['Filters apply to loaded issues.', { 'zh-TW': '篩選僅套用到已載入的問題。', 'zh-CN': '筛选仅应用于已加载的问题。' }],
   ['None', { 'zh-TW': '無', 'zh-CN': '无' }],
   ['No values', { 'zh-TW': '無可用選項', 'zh-CN': '无可用选项' }],
   ['Field display', { 'zh-TW': '欄位顯示', 'zh-CN': '字段显示' }],
@@ -26,7 +26,6 @@ const messages = new Map([
   ['Issue views', { 'zh-TW': '問題檢視', 'zh-CN': '问题视图' }],
   ['Assigned to Me', { 'zh-TW': '指派給我的問題', 'zh-CN': '分配给我的问题' }],
   ['Viewing Issues', { 'zh-TW': '問題清單', 'zh-CN': '问题列表' }],
-  ['View Issue Details', { 'zh-TW': '問題詳情', 'zh-CN': '问题详情' }],
   ['Summary', { 'zh-TW': '摘要', 'zh-CN': '摘要' }],
   ['Status', { 'zh-TW': '狀態', 'zh-CN': '状态' }],
   ['Relationships', { 'zh-TW': '關聯問題', 'zh-CN': '关联问题' }],
@@ -42,11 +41,14 @@ const messages = new Map([
   ['Token cleared', { 'zh-TW': '已清除權杖', 'zh-CN': '已清除令牌' }],
   ['Disconnect', { 'zh-TW': '中斷連線', 'zh-CN': '断开连接' }],
   ['Back to issues', { 'zh-TW': '返回問題列表', 'zh-CN': '返回问题列表' }],
+  ['Previous issue', { 'zh-TW': '上一個問題', 'zh-CN': '上一个问题' }],
+  ['Issue list', { 'zh-TW': '問題列表', 'zh-CN': '问题列表' }],
   ['Search projects', { 'zh-TW': '搜尋專案', 'zh-CN': '搜索项目' }],
   ['Projects', { 'zh-TW': '專案', 'zh-CN': '项目' }],
   ['No matching projects.', { 'zh-TW': '沒有符合的專案。', 'zh-CN': '没有匹配的项目。' }],
   ['Back', { 'zh-TW': '返回', 'zh-CN': '返回' }],
   ['Open original', { 'zh-TW': '開啟原始內容', 'zh-CN': '打开原始内容' }],
+  ['Open original issue {id}', { 'zh-TW': '開啟原始問題 {id}', 'zh-CN': '打开原始问题 {id}' }],
   ['No section', { 'zh-TW': '未分組', 'zh-CN': '未分组' }],
   ['Assignee', { 'zh-TW': '負責人', 'zh-CN': '负责人' }],
   ['Unassigned', { 'zh-TW': '未指派', 'zh-CN': '未分配' }],
@@ -126,7 +128,7 @@ export function localeOf(locale: string | undefined) {
   return 'en'
 }
 
-export function translate(source: string, locale: ReturnType<typeof localeOf>, values?: Record<string, number>) {
+export function translate(source: string, locale: ReturnType<typeof localeOf>, values?: Record<string, string | number>) {
   const entry = messages.get(source)
   const message = entry && locale !== 'en' ? entry[locale] : source
   return values ? message.replace(/\{(\w+)\}/g, (token, key) => String(values[key] ?? token)) : message

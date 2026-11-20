@@ -107,6 +107,50 @@ test('restores the binding and remembers the list while navigating an open issue
   model.dispose()
 })
 
+test('a reopened sidebar restores the current issue and returning to the list clears it', async () => {
+  let selected: string | null = null
+  const overrides: MockRequests = {
+    'connection.read': () => bound,
+    'issues.selection.read': () => ({ id: selected }),
+    'issues.selection.save': ({ id }) => { selected = id; return { ok: true } },
+    'issues.detail': ({ id }) => ({ ...detail, id, subtasks: 0 }),
+  }
+  const first = createModel(overrides)
+  await first.reload()
+  await first.openTask(detail.id)
+  await first.openTask('44')
+  await first.back()
+  assert.equal(selected, detail.id)
+  first.dispose()
+
+  const reopened = createModel(overrides)
+  await reopened.reload()
+  assert.equal(reopened.state.detail?.id, detail.id)
+  assert.equal(reopened.recorded.some(request => request.name === 'issues.list'), false)
+  await reopened.back(true)
+  assert.equal(selected, null)
+  assert.equal(reopened.state.issues[0].id, detail.id)
+  reopened.dispose()
+  const reopenedList = createModel(overrides)
+  await reopenedList.reload()
+  assert.equal(reopenedList.state.detailId, '')
+  reopenedList.dispose()
+})
+
+test('an issue that was resolved while the sidebar was closed falls back to the list', async () => {
+  const model = createModel({
+    'connection.read': () => bound,
+    'issues.selection.read': () => ({ id: '44' }),
+    'issues.detail': () => { throw Error('This issue was resolved or deleted in MantisBT.') },
+  })
+  await model.reload()
+  assert.equal(model.state.detailId, '')
+  assert.equal(model.state.issues[0].id, detail.id)
+  assert.deepEqual(model.recorded.find(request => request.name === 'issues.selection.save')?.input,
+    { project: project.id, scope: bound.scope, id: null })
+  model.dispose()
+})
+
 test('requests project matches from MantisBT and avoids rebinding the current project', async () => {
   const model = createModel({
     'connection.read': () => bound,

@@ -4,6 +4,24 @@ import { detail } from './fixtures'
 const fake = { subtasks: async () => [], validate: async () => { throw Error('Saving must not contact the offline server') }, projects: async () => ({ items: [], next: null }), issues: async () => ({ items: [], next: null }), detail: async () => detail, projectInfo: async (id: string) => ({ id, name: 'MantisBT project', workspaceId: id }), projectFields: async () => detail.customFields }
 const input = { url: 'https://mantis.example.test', token: 'test-only-token' }
 const capabilities = ['secrets:own', 'storage:own', 'workspace:read']
+test('issue selection is scoped to workspace, server and project and latest navigation wins', async () => {
+  const host = mockHost({ capabilities, secrets: { 'connection.v1': JSON.stringify(input) } })
+  const worker = await mountWorker({ default: createWorker(() => fake, async () => 'repo-a') }, { host })
+  const { scope } = await worker.request('connection.read')
+  const project = { scope: scope!, project: '12' }
+  await Promise.all([
+    worker.request('issues.selection.save', { ...project, id: '42' }),
+    worker.request('issues.selection.save', { ...project, id: '43' }),
+  ])
+  assert.deepEqual(await worker.request('issues.selection.read', project), { id: '43' })
+  assert.deepEqual(await worker.request('issues.selection.read', { ...project, project: '13' }), { id: null })
+  assert.deepEqual(await worker.request('issues.selection.read', { ...project, scope: 'other-workspace' }), { id: null })
+  const other = await worker.request('connection.save', { ...input, url: 'https://other.example.test' })
+  assert.deepEqual(await worker.request('issues.selection.read', { ...project, scope: other.scope! }), { id: null })
+  await worker.request('issues.selection.save', { ...project, id: null })
+  assert.deepEqual(await worker.request('issues.selection.read', project), { id: null })
+  await worker.deactivate()
+})
 test('field layouts are independent per MantisBT project and server', async () => {
   const host = mockHost({ capabilities, secrets: { 'connection.v1': JSON.stringify(input) } })
   const worker = await mountWorker({ default: createWorker(() => fake, async () => 'repo-a') }, { host })

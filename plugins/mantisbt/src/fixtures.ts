@@ -5,6 +5,7 @@ export const detail = { ...issues.items[0], priority: 'High', priorityId: 50, se
 export const requests = {
   'data.refresh': () => ({ ok: true as const }),
   'fields.read': () => ({}), 'fields.catalog': () => detail.customFields,
+  'issues.selection.read': () => ({ id: null }), 'issues.selection.save': () => ({ ok: true as const }),
   'connection.read': () => connected, 'projects.list': () => projects, 'issues.list': () => issues, 'issues.detail': () => detail,
   'issues.subtasks': () => [{ ...issues.items[0], id: '44', title: 'Check redirect target', subtasks: 0 }],
   'project.bind': () => projects.items[0], 'view.save': () => ({ ok: true as const }),

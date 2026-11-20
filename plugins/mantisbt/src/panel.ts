@@ -49,7 +49,7 @@ function button(className: string, action: Action, ...children: (Node | string)[
 const frame = window.orca
 const locale = localeOf(frame.locale)
 document.documentElement.lang = frame.locale || locale
-const t = (key: string, values?: Record<string, number>) => translate(key, locale, values)
+const t = (key: string, values?: Record<string, string | number>) => translate(key, locale, values)
 const formatDate = (date: string) => dateLabel(date, locale)
 
 function iconButton(name: keyof typeof icons, label: string, action: Action) {
@@ -88,6 +88,24 @@ function statusSwatch(issue: Issue) {
   swatch.style.backgroundColor = statusColor(issue)
   swatch.setAttribute('aria-hidden', 'true')
   return swatch
+}
+
+function openOriginal(url: string) {
+  void frame.host.call('shell.openExternal', { url }).catch(console.warn)
+}
+
+function issueId(issue: Issue) {
+  const number = issueNumber(issue.id)
+  if (!issue.url) return element('span', 'issue-id', number)
+  const link = element('a', 'issue-id issue-link', number)
+  link.href = issue.url
+  link.title = t('Open original issue {id}', { id: number })
+  link.setAttribute('aria-label', link.title)
+  link.addEventListener('click', event => {
+    event.preventDefault()
+    openOriginal(issue.url)
+  })
+  return link
 }
 
 function fieldContent(issue: Issue, id: string, surface: FieldSurface): (Node | string)[] {
@@ -183,9 +201,8 @@ function issueFilters() {
   reset.dataset.focus = 'reset-filters'
   const chips = element('div', 'filter-chips')
   const selection = element('div', 'filter-selection', chips, reset)
-  const tally = element('span', 'muted')
+  const tally = element('p', 'filter-footer muted')
   tally.setAttribute('role', 'status')
-  const scope = element('p', 'muted', t('Filters apply to loaded issues.'))
   const tabs = filterKeys.map(key => {
     const tab = button('filter-tab', () => {
       if (active === key) return
@@ -200,7 +217,7 @@ function issueFilters() {
   const categories = element('div', 'filter-categories', ...tabs.map(({ tab }) => tab))
   categories.setAttribute('role', 'group')
   categories.setAttribute('aria-label', t('Filter fields'))
-  const body = element('div', 'filter-controls', categories, search.form, options, element('div', 'filter-footer', tally, scope))
+  const body = element('div', 'filter-controls', categories, search.form, options, tally)
   body.id = 'mantis-filter-panel'
 
   function valueLabel(key: FilterKey, value: string) {
@@ -250,8 +267,9 @@ function issueFilters() {
         return chip
       })))
       if (body.hidden) return
-      tally.textContent = t('{count} of {total} issues', { count: matches, total: state.issues.length })
-      scope.hidden = !state.next
+      tally.textContent = t(state.next ? '{count} of {total} loaded issues' : '{count} of {total} issues', {
+        count: matches, total: state.issues.length,
+      })
       for (const { key, tab } of tabs) {
         const count = state.filters[key]?.length ?? 0
         tab.textContent = count ? `${t(filterFields[key])} (${count})` : t(filterFields[key])
@@ -374,7 +392,7 @@ function details(entry: IssueDetail) {
   const content = element('article', 'detail-content')
   const title = element('h1', 'task-title', entry.title)
   title.tabIndex = -1
-  const header = element('div', 'issue-heading', element('span', 'issue-id', issueNumber(entry.id)), title)
+  const header = element('div', 'issue-heading', issueId(entry), title)
   const meta = element('dl', 'metadata')
   for (const field of fieldOptions('detail', entry.customFields ?? [], state.fieldLayout.detail)) {
     if (!field.visible) continue
@@ -408,17 +426,19 @@ function details(entry: IssueDetail) {
 }
 
 function taskDetail() {
-  const back = iconButton('back', t('Back'), () => model.back())
-  const close = iconButton('close', t('Back to issues'), () => model.back(true))
+  const backLabel = element('span')
+  const back = button('detail-back', () => model.back(), icon('back'), backLabel)
+  const list = button('detail-list', () => model.back(true), t('Issue list'))
   const external = iconButton('external', t('Open original'), () => {
-    if (state.detail?.url) void frame.host.call('shell.openExternal', { url: state.detail.url }).catch(console.warn)
+    if (state.detail?.url) openOriginal(state.detail.url)
   })
   const fields = iconButton('settings', t('Field display'), model.openFields)
   fields.dataset.focus = 'open-fields'
   const body = element('div', 'detail-body')
-  main.append(element('div', 'widget-title detail-toolbar', back, element('h2', '', t('View Issue Details')), element('div', 'actions', fields, external, close)), body)
+  main.append(element('div', 'detail-toolbar', back, element('div', 'actions', list, fields, external)), body)
   return () => {
-    back.hidden = !state.history.length
+    backLabel.textContent = t(state.history.length ? 'Previous issue' : 'Back to issues')
+    list.hidden = !state.history.length
     external.hidden = !state.detail?.url
     fields.disabled = state.busy || !state.project
     if (state.detail) body.replaceChildren(...details(state.detail))
