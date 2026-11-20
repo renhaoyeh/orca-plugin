@@ -20,14 +20,17 @@ adapted for the sidebar width. Requires Orca 1.4.259+.
   Workspace changes restore the correct binding. Changing the server does not accidentally
   reuse a project ID from another server. Binding writes revalidate scope after the read.
 - Mine sends Mantis `filter_id=assigned` and follows every page. All loads original
-  20-record server pages with Load more. Both retain exact project membership and use
+  20-record server pages with Load more or Fetch all issues. Stop fetching keeps the
+  completed pages. Both retain exact project membership and use
   the server's `bug_resolved_status_threshold`, not a guessed hardcoded resolved status.
   An empty filtered page may still have a next page. Tab preference persists.
   The panel keeps separate Mine/All pages. The worker shares recent issue, detail,
   and relationship reads across sidebar opens and clears them on refresh or reconnect.
-- Collapsible groups follow Mantis status. Rows include a zero-padded ID, assignee, category, severity, colored priority,
-  note count, updated/due dates and child count when available. Text filters the loaded
-  issue ID/title/assignee/status/category; it is not a full server text search.
+- Collapsible groups follow Mantis status. Text search and multi-select filters apply
+  to the loaded issues. Select multiple values within Reporter, Assignee, Status,
+  Category, Priority or Severity and combine filters across those fields.
+- Field display saves visibility and order separately for list fields and issue
+  details for each Mantis server and project. Both views support project custom fields.
 - Internal details include status, priority, severity, category, resolution, reproducibility,
   reporter, visibility, project, dates, tags, attachment count and custom fields. Original
   project field definitions type custom values and convert timestamp date fields.
@@ -41,7 +44,7 @@ with standard Mantis colors as fallbacks. Attachment bodies/images are not downl
 are shown. Notes are bounded to 16,000 characters and the first 30 comments to 1,500
 characters each, with a shortening notice. History is in memory and limited to 30 steps.
 
-Not ported: wide table and board layouts, in-list child expansion, configurable field visibility/order,
+Not ported: wide table, in-list child expansion,
 remembered selected issue, original on-disk issue caches, attachment downloads or Tasks import.
 No remote writes, agents, dispatch or terminal operations.
 
@@ -56,7 +59,7 @@ records for Orca. Do not replace these files with Asana's domain logic.
 The trusted Node worker requires:
 
 - `secrets:own`: encrypted `connection.v1`, retaining the original plugin/storage identity.
-- `storage:own`: nonsecret project bindings and Mine/All preference.
+- `storage:own`: nonsecret project bindings, Mine/All preference and field layouts.
 - `workspace:read`: repository/folder/host context; no project file reads are performed.
 
 Node fetch runs outside host capability enforcement, with the user's machine access.

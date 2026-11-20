@@ -33,7 +33,7 @@ ul { list-style: none; padding: 0; }
 button, input { font: inherit; color: inherit; }
 button { border: 0; padding: 0; background: transparent; cursor: pointer; text-align: start; }
 button:disabled { cursor: default; }
-button:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+button:focus-visible, input:focus-visible, summary:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 svg { width: 16px; height: 16px; flex: 0 0 auto; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
 
 .panel-bar { min-height: 40px; padding: 4px 9px 4px 12px; display: flex; align-items: center; justify-content: space-between; background: var(--navbar); color: #fff; }
@@ -65,6 +65,30 @@ svg { width: 16px; height: 16px; flex: 0 0 auto; fill: none; stroke: currentColo
 .view-button:not(:disabled):hover, .more-button:not(:disabled):hover, .disconnect:not(:disabled):hover { background: var(--hover); }
 .view-button[aria-pressed="true"], .view-button[aria-pressed="true"]:hover { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 650; }
 .filters { padding: 7px 8px; background: #f5f5f5; border-block: 1px solid var(--rule); }
+.filter-toolbar, .filter-footer, .filter-selection, .field-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.filter-toolbar .search-field { flex: 1 1 110px; min-width: 0; }
+.filter-toolbar button[aria-expanded="true"] { background: var(--breadcrumb); border-color: var(--accent); }
+.filter-selection { margin-top: 7px; }
+.filter-chips { display: flex; gap: 5px; flex: 1; min-width: 0; overflow-x: auto; padding: 2px; }
+.filter-chip { display: inline-flex; align-items: center; gap: 4px; flex: 0 0 auto; max-width: 100%; min-height: 25px; padding: 2px 5px; border: 1px solid #a4bdd0; border-radius: 3px; background: var(--breadcrumb); color: var(--text); }
+.filter-chip:hover { border-color: var(--accent); background: var(--hover); }
+.filter-chip-field { flex: 0 0 auto; color: var(--muted); font-size: 11px; }
+.filter-chip svg { flex: 0 0 12px; width: 12px; height: 12px; }
+.filter-chip .filter-value { overflow-wrap: anywhere; }
+.filter-controls { display: grid; gap: 6px; margin-top: 7px; padding: 6px; border: 1px solid #a4bdd0; background: var(--category); }
+.filter-categories { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px; }
+.filter-tab { min-height: 29px; padding: 3px 4px; border: 1px solid var(--rule); border-radius: 3px; background: #fff; text-align: center; overflow-wrap: anywhere; }
+.filter-tab:hover, .filter-values label:hover { background: var(--hover); }
+.filter-tab[aria-pressed="true"] { border-color: var(--accent); background: var(--accent); color: #fff; font-weight: 600; }
+.filter-values { max-height: min(11em, 28vh); overflow: auto; padding: 2px; border: 1px solid var(--rule); background: #fff; }
+.filter-values label, .field-row label { display: flex; align-items: flex-start; gap: 5px; min-width: 0; overflow-wrap: anywhere; }
+.filter-values label { align-items: center; justify-content: space-between; min-height: 29px; padding: 3px 6px; border-radius: 2px; cursor: pointer; }
+.filter-values label:has(input:checked) { background: var(--breadcrumb); }
+.filter-values label:focus-within { outline: 1px solid var(--accent); outline-offset: -1px; }
+.filter-values p { padding: 3px 4px; }
+.filter-value { display: flex; align-items: center; gap: 5px; min-width: 0; }
+.filter-values input, .field-row input { flex: 0 0 auto; accent-color: var(--accent); }
+.filter-footer { justify-content: space-between; padding: 0 1px; font-size: 11px; }
 .search-field { display: flex; align-items: center; gap: 6px; padding: 0 7px; border: 1px solid var(--rule); color: var(--muted); background: #fff; }
 .search-field:focus-within { border-color: var(--accent); }
 .search-input { width: 100%; min-width: 0; height: 28px; border: 0; padding: 0; outline: 0; background: transparent; color: var(--text); }
@@ -94,10 +118,15 @@ button.section-toggle:hover { background: var(--breadcrumb); }
 .row-status { gap: 4px; font-size: 11px; overflow-wrap: anywhere; }
 .row-meta { grid-column: 1 / -1; display: flex; align-items: center; flex-wrap: wrap; column-gap: 8px; padding: 1px 6px 4px; font-size: 11px; }
 .row-meta > span { overflow-wrap: anywhere; }
+.row-field { display: inline-flex; align-items: center; flex-wrap: wrap; gap: 3px; min-width: 0; }
+.row-field-name { font-weight: 600; }
+.task-row--custom { grid-template-columns: minmax(0, 1fr); min-height: 32px; }
+.task-row--custom > .task-summary { border-inline-start: 0; font-weight: 600; }
 .subtask-count { display: inline-flex; align-items: center; gap: 2px; }
 .subtask-count svg { width: 12px; height: 12px; }
 .empty { padding: 14px 10px; color: var(--muted); }
 .more-button { margin: 8px; }
+.fetch-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 7px; padding: 5px 7px; border-bottom: 1px solid var(--table-rule); }
 
 .detail-toolbar { position: sticky; top: 0; z-index: 1; }
 .detail-toolbar h2 { flex: 1; }
@@ -128,6 +157,12 @@ button.section-toggle:hover { background: var(--breadcrumb); }
 .connection label { font-weight: 600; }
 .token-input { min-width: 0; min-height: 30px; border: 1px solid var(--rule); padding: 4px 6px; background: #fff; }
 .disconnect { justify-self: start; margin-top: 4px; color: var(--danger); border-color: var(--rule); }
+.field-project { padding: 6px 8px; background: var(--breadcrumb); overflow-wrap: anywhere; }
+.field-row { display: flex; justify-content: space-between; align-items: center; gap: 5px; padding: 4px 7px; border-bottom: 1px solid var(--rule); }
+.field-row:nth-child(odd) { background: var(--row); }
+.field-row .icon-button { color: var(--accent); }
+.field-row .icon-button:not(:disabled):hover { background: var(--breadcrumb); }
+.field-actions { justify-content: flex-end; padding: 8px; }
 
 .skeleton-row { min-height: 37px; border-bottom: 1px solid var(--rule); display: grid; grid-template-columns: 26px minmax(30px, 1fr) 55px; align-items: center; gap: 8px; padding: 0 8px; }
 .skeleton-row:nth-child(odd) { background: var(--row); }

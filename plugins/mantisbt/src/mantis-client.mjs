@@ -11,6 +11,9 @@ function issue(item) {
 export function mantisClient(_kind, config, request = fetch) {
   return {
     validate: () => source.validateConnection(config, request),
+    async projectFields(gid) {
+      return (await source.projectFields(config, id(gid), request)).map(field => ({ id: field.gid, name: field.name }))
+    },
     async projects(_cursor = null, query = '') { return { items: (await source.searchProjects(config, query, request)).map(project), next: null } },
     async projectInfo(gid) {
       gid = id(gid)

@@ -3,6 +3,7 @@ import type { PluginBridgeApi } from 'orca/host'
 import { createPanelState } from './panel-state'
 import { connected, requests, projects, detail } from './fixtures'
 import { localeOf, translateError } from './i18n'
+import { fieldOptions } from './fields'
 
 function createModel(overrides: MockRequests = {}) {
   const handlers: MockRequests = { ...requests, ...overrides }
@@ -16,6 +17,26 @@ function createModel(overrides: MockRequests = {}) {
 
 const project = projects.items[0]
 const bound = { ...connected, binding: project }
+
+test('field preferences restore, keep independent order and expose new project fields', async () => {
+  const list = [{ id: 'custom:version', visible: true }, { id: 'category', visible: false }]
+  const model = createModel({
+    'connection.read': () => bound,
+    'fields.read': () => ({ list }),
+    'fields.save': input => input.layout,
+  })
+  await model.reload()
+  await model.openFields()
+  const custom = model.state.fieldCatalog!
+  const fields = fieldOptions('list', custom, model.state.fieldLayout.list)
+  assert.equal(fields[0].id, 'custom:version')
+  assert.equal(fields[1].visible, false)
+  assert.equal(fieldOptions('detail', custom).find(field => field.id === 'custom:estimate')?.visible, true)
+  await model.saveFields({ list, detail: [{ id: 'priority', visible: false }] })
+  assert.equal(model.state.fieldEditor, false)
+  assert.deepEqual(model.state.fieldLayout.detail, [{ id: 'priority', visible: false }])
+  model.dispose()
+})
 
 test('settings save both fields and stay open until the user returns to project search', async () => {
   const model = createModel({
@@ -112,6 +133,48 @@ test('Mine and All reuse their own pages, while Refresh fetches them again', asy
   assert.deepEqual(model.recorded.filter(({ name }) => name === 'issues.list').map(({ input }) => (input as { tab: string }).tab), ['mine', 'all'])
   await model.refresh()
   assert.equal(model.recorded.filter(({ name }) => name === 'issues.list').length, 3)
+  model.dispose()
+})
+
+test('Fetch all follows every cursor, including pages with no open issues', async () => {
+  const model = createModel({
+    'connection.read': () => ({ ...bound, tab: 'all' }),
+    'issues.list': ({ cursor }) => {
+      if (!cursor) return { items: [detail], next: '2' }
+      return cursor === '2' ? { items: [], next: '3' } : { items: [detail, { ...detail, id: '44' }], next: null }
+    },
+  })
+  await model.reload()
+  await model.fetchAll()
+  assert.deepEqual(model.state.issues.map(issue => issue.id), [detail.id, '44'])
+  assert.equal(model.state.next, null)
+  assert.equal(model.state.fetchPages, 2)
+  assert.equal(model.state.fetchingAll, false)
+  model.dispose()
+})
+
+test('stopping Fetch all keeps the completed pages and resumes from the pending cursor', async () => {
+  let release: () => void = () => {}
+  let pageThreeCalls = 0
+  const model = createModel({
+    'connection.read': () => ({ ...bound, tab: 'all' }),
+    'issues.list': async ({ cursor }) => {
+      if (!cursor) return { items: [detail], next: '2' }
+      if (cursor === '2') return { items: [{ ...detail, id: '44' }], next: '3' }
+      if (++pageThreeCalls === 1) await new Promise<void>(resolve => { release = resolve })
+      return { items: [{ ...detail, id: '45' }], next: null }
+    },
+  })
+  await model.reload()
+  const pending = model.fetchAll()
+  await new Promise(resolve => setTimeout(resolve, 0))
+  model.stopFetchAll()
+  release()
+  await pending
+  assert.deepEqual(model.state.issues.map(issue => issue.id), [detail.id, '44'])
+  assert.equal(model.state.next, '3')
+  await model.fetchAll()
+  assert.deepEqual(model.state.issues.map(issue => issue.id), [detail.id, '44', '45'])
   model.dispose()
 })
 

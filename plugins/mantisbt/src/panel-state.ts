@@ -1,5 +1,14 @@
 import type { PluginBridgeApi } from 'orca/host'
-import type { ConnectionState, Project, Issue, IssueDetail, Page } from './protocol'
+import type { ConnectionState, FieldLayout, FieldOption, Project, Issue, IssueDetail, Page } from './protocol'
+
+export const filterFields = {
+  reporter: 'Reporter', assignee: 'Assignee', status: 'Status', category: 'Category', priority: 'Priority', severity: 'Severity',
+} as const
+export type FilterKey = keyof typeof filterFields
+type Filters = Partial<Record<FilterKey, string[]>>
+export function filterValue(issue: Issue, key: FilterKey) {
+  return (key === 'status' ? issue.section || issue.status : issue[key]) || ''
+}
 
 export function createPanelState(request: PluginBridgeApi['request'], changed: () => void) {
   const state = {
@@ -9,6 +18,9 @@ export function createPanelState(request: PluginBridgeApi['request'], changed: (
     detailId: '', detail: null as IssueDetail | null, children: [] as Issue[],
     history: [] as { detail: IssueDetail; children: Issue[] }[],
     collapsedSections: new Set<string>(),
+    filters: {} as Filters, filtersOpen: false,
+    fieldEditor: false, fieldLayout: {} as FieldLayout, fieldCatalog: null as FieldOption[] | null,
+    fetchingAll: false, fetchPages: 0,
   }
   const cache = new Map<string, Page<Issue>>()
   let generation = 0
@@ -19,6 +31,7 @@ export function createPanelState(request: PluginBridgeApi['request'], changed: (
   let pendingSave = false
   let workspaceChanged = false
   let connectionChanged = false
+  let stopFetching = false
 
   function patch(values: Partial<typeof state>) {
     Object.assign(state, values)
@@ -81,6 +94,31 @@ export function createPanelState(request: PluginBridgeApi['request'], changed: (
     patch({ issues: items, next: page.next })
   }
 
+  function fieldProject() {
+    return state.project && state.config ? { project: state.project.id, url: state.config.url } : null
+  }
+
+  async function loadProject(current: () => boolean) {
+    const input = fieldProject()
+    if (!input) return
+    const results = await Promise.allSettled([
+      loadIssues(current),
+      request('fields.read', input).then(fieldLayout => { if (current()) patch({ fieldLayout }) }),
+    ])
+    for (const result of results) if (result.status === 'rejected') throw result.reason
+  }
+
+  function openFields() {
+    return run(async current => {
+      const input = fieldProject()
+      if (!input) return
+      patch({ fieldEditor: true })
+      if (state.fieldCatalog) return
+      const fieldCatalog = await request('fields.catalog', input)
+      if (current()) patch({ fieldCatalog })
+    })
+  }
+
   function chooseProject() {
     return run(async current => {
       patch({ picker: true, projectQuery: '', projects: [] })
@@ -95,8 +133,8 @@ export function createPanelState(request: PluginBridgeApi['request'], changed: (
       if (!scope) return
       const saved = await request('project.bind', { scope, id: project.id })
       if (!current()) return
-      patch({ project: saved, picker: false, query: '', issues: [], next: null, collapsedSections: new Set() })
-      await loadIssues(current)
+      patch({ project: saved, picker: false, query: '', issues: [], next: null, collapsedSections: new Set(), filters: {}, fieldLayout: {}, fieldCatalog: null })
+      await loadProject(current)
     })
   }
 
@@ -155,7 +193,7 @@ export function createPanelState(request: PluginBridgeApi['request'], changed: (
       patch({
         config: saved, server: saved.url, token: '', status: 'Saved', project: saved.binding ?? null,
         picker: !saved.binding, projects: [], projectQuery: '', query: '', issues: [], next: null,
-        detailId: '', detail: null, children: [], history: [], collapsedSections: new Set(),
+        detailId: '', detail: null, children: [], history: [], collapsedSections: new Set(), filters: {}, fieldEditor: false, fieldLayout: {}, fieldCatalog: null,
       })
       if (!state.settings) await loadCurrent(current)
     })
@@ -174,7 +212,7 @@ export function createPanelState(request: PluginBridgeApi['request'], changed: (
 
   function loadCurrent(current: () => boolean) {
     if (state.detailId) return loadDetail(current, state.detailId)
-    return state.picker ? loadProjects(current) : loadIssues(current)
+    return state.picker ? loadProjects(current) : loadProject(current)
   }
 
   function reload(force = false) {
@@ -194,6 +232,7 @@ export function createPanelState(request: PluginBridgeApi['request'], changed: (
         config: saved, server: saved.url, settings: !saved.configured, token: '', status: '', project: saved.binding ?? null,
         tab: saved.tab ?? 'mine', picker: !saved.binding, projects: [], projectQuery: '',
         detailId: '', detail: null, issues: [], next: null, query: '', children: [], history: [], collapsedSections: new Set(),
+        filters: {}, fieldEditor: false, fieldLayout: {}, fieldCatalog: null,
       })
       if (saved.configured) await loadCurrent(current)
     })
@@ -203,6 +242,7 @@ export function createPanelState(request: PluginBridgeApi['request'], changed: (
     if (workspace === id) return
     if (workspace !== undefined) workspaceChanged = true
     workspace = id
+    if (workspaceChanged && state.fetchingAll) stopFetching = true
     if (workspaceChanged && !state.settings) void reload()
   }
 
@@ -226,7 +266,29 @@ export function createPanelState(request: PluginBridgeApi['request'], changed: (
       patch({
         config: saved, server: saved.url, token: '', status: 'Token cleared', project: null, projects: [], issues: [], next: null,
         detailId: '', detail: null, children: [], history: [], query: '', projectQuery: '', picker: true,
+        filters: {}, fieldEditor: false, fieldLayout: {}, fieldCatalog: null,
       })
+    })
+  }
+
+  function fetchAll() {
+    if (state.tab !== 'all' || !state.project || !state.next) return
+    return run(async current => {
+      stopFetching = false
+      patch({ fetchingAll: true, fetchPages: 0 })
+      const visited = new Set<string>()
+      try {
+        while (current() && !stopFetching && state.next) {
+          if (visited.has(state.next)) throw Error('MantisBT returned a repeated page. Try refreshing.')
+          visited.add(state.next)
+          await loadIssues(() => current() && !stopFetching, true)
+          if (current() && !stopFetching) patch({ fetchPages: state.fetchPages + 1 })
+        }
+      } catch (error) {
+        if (!stopFetching) throw error
+      } finally {
+        if (current()) patch({ fetchingAll: false })
+      }
     })
   }
 
@@ -234,6 +296,21 @@ export function createPanelState(request: PluginBridgeApi['request'], changed: (
     state, reload, onWorkspace, chooseProject, bindProject, searchProjects, selectTab, openTask, back,
     toggleSettings, editServer, editToken, saveToken, disconnect,
     setQuery: (query: string) => patch({ query }),
+    toggleFilters: () => patch({ filtersOpen: !state.filtersOpen }),
+    clearFilters: () => patch({ filters: {} }),
+    toggleFilter(key: FilterKey, value: string) {
+      const selected = new Set(state.filters[key])
+      if (!selected.delete(value)) selected.add(value)
+      patch({ filters: { ...state.filters, [key]: [...selected] } })
+    },
+    openFields,
+    closeFields: () => patch({ fieldEditor: false, problem: '' }),
+    saveFields: (layout: FieldLayout) => run(async current => {
+      const input = fieldProject()
+      if (!input) return
+      const fieldLayout = await request('fields.save', { ...input, layout })
+      if (current()) patch({ fieldLayout, fieldEditor: false })
+    }),
     toggleSection(section: string) {
       if (!state.collapsedSections.delete(section)) state.collapsedSections.add(section)
       changed()
@@ -242,9 +319,12 @@ export function createPanelState(request: PluginBridgeApi['request'], changed: (
       await request('data.refresh')
       if (!current()) return
       cache.clear()
+      patch({ fieldCatalog: null })
       await loadCurrent(current)
     }),
     more: () => run(current => loadIssues(current, true)),
+    fetchAll,
+    stopFetchAll: () => { stopFetching = true },
     dispose() {
       clearTimeout(searchTimer)
       clearTimeout(saveTimer)

@@ -1,9 +1,24 @@
 import { assert, mockHost, mountWorker, test } from 'orca/testing'
 import { createWorker } from './worker'
 import { detail } from './fixtures'
-const fake = { subtasks: async () => [], validate: async () => { throw Error('Saving must not contact the offline server') }, projects: async () => ({ items: [], next: null }), issues: async () => ({ items: [], next: null }), detail: async () => detail, projectInfo: async (id: string) => ({ id, name: 'MantisBT project', workspaceId: id }) }
+const fake = { subtasks: async () => [], validate: async () => { throw Error('Saving must not contact the offline server') }, projects: async () => ({ items: [], next: null }), issues: async () => ({ items: [], next: null }), detail: async () => detail, projectInfo: async (id: string) => ({ id, name: 'MantisBT project', workspaceId: id }), projectFields: async () => detail.customFields }
 const input = { url: 'https://mantis.example.test', token: 'test-only-token' }
 const capabilities = ['secrets:own', 'storage:own', 'workspace:read']
+test('field layouts are independent per MantisBT project and server', async () => {
+  const host = mockHost({ capabilities, secrets: { 'connection.v1': JSON.stringify(input) } })
+  const worker = await mountWorker({ default: createWorker(() => fake, async () => 'repo-a') }, { host })
+  const project = { url: input.url, project: '12' }
+  const layout = { list: [{ id: 'custom:version', visible: true }, { id: 'category', visible: false }], detail: [{ id: 'category', visible: true }] }
+  assert.equal((await worker.request('fields.catalog', project))[0].name, 'Target version')
+  await worker.request('fields.save', { ...project, layout })
+  assert.deepEqual(await worker.request('fields.read', project), layout)
+  assert.deepEqual(await worker.request('fields.read', { ...project, project: '13' }), {})
+  const url = 'https://other.example.test'
+  await worker.request('connection.save', { ...input, url })
+  assert.deepEqual(await worker.request('fields.read', { ...project, url }), {})
+  await assert.rejects(worker.request('fields.save', { ...project, layout }), /Workspace or server changed/)
+  await worker.deactivate()
+})
 test('shares reads across sidebar opens and drops them on refresh or server change', async () => {
   let loads = 0
   const host = mockHost({ capabilities, secrets: { 'connection.v1': JSON.stringify(input) } })

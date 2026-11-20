@@ -1,5 +1,7 @@
 import type { OrcaWorkerApi } from 'orca/worker'
-import type { ConnectionState, Issue, IssueDetail, Page, Project } from './protocol'
+import type { ConnectionState, FieldOption, Issue, IssueDetail, Page, Project } from './protocol'
+import { fieldStorageKey } from './field-storage.mjs'
+import { normalizeLayout } from './fields'
 import { requestCache } from './request-cache'
 import { mantisClient } from './mantis-client.mjs'
 import { connection, normalizeServer } from './api.mjs'
@@ -19,6 +21,7 @@ async function workspaceScope(orca: OrcaWorkerApi) {
 type MantisClient = {
   projects(cursor: null, query: string): Promise<Page<Project>>
   projectInfo(id: string): Promise<Project>
+  projectFields(id: string): Promise<FieldOption[]>
   issues(project: string, cursor: string | null, tab: 'mine' | 'all'): Promise<Page<Issue>>
   detail(id: string): Promise<IssueDetail>
   subtasks(id: string): Promise<Issue[]>
@@ -49,6 +52,12 @@ export function createWorker(
       const config = await saved()
       if (!config) throw Error('Connect an API token first.')
       return makeClient('mantisbt', config)
+    }
+    async function fieldProject(input: { url: string; project: string }) {
+      const config = await saved()
+      if (!config || config.url !== input.url) throw Error('Workspace or server changed. Choose the project again.')
+      if (!/^\d+$/.test(input.project)) throw Error('Invalid MantisBT ID.')
+      return config
     }
     async function state(): Promise<ConnectionState> {
       const config = await saved(), key = JSON.stringify([await readScope(orca), config?.url || ''])
@@ -99,6 +108,18 @@ export function createWorker(
       await orca.host.call('storage.set', { key: 'tab', value: input.tab }); return { ok: true as const }
     })
     orca.panels.handle('projects.list', async input => (await api()).projects(null, input?.query ?? ''))
+    orca.panels.handle('fields.read', async input => {
+      const config = await fieldProject(input)
+      const { value } = await orca.host.call('storage.get', { key: fieldStorageKey(config.url, input.project) })
+      return normalizeLayout(value)
+    })
+    orca.panels.handle('fields.catalog', async input => makeClient('mantisbt', await fieldProject(input)).projectFields(input.project))
+    orca.panels.handle('fields.save', async input => {
+      const config = await fieldProject(input)
+      const layout = normalizeLayout(input.layout)
+      await orca.host.call('storage.set', { key: fieldStorageKey(config.url, input.project), value: layout })
+      return layout
+    })
     orca.panels.handle('issues.subtasks', input => subtasks.load(input.id, async () => (await api()).subtasks(input.id)))
     orca.panels.handle('issues.detail', input => details.load(input.id, async () => (await api()).detail(input.id), detail => !detail.commentsError))
     orca.panels.handle('issues.list', input => {

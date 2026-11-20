@@ -3,6 +3,11 @@ export type ConnectionState = { configured: boolean; url: string; scope?: string
 export type Issue = { statusId?: number; statusName?: string; statusColor?: string; priority?: string; priorityId?: number; severity?: string; category?: string; resolution?: string; reproducibility?: string; reporter?: string; viewStatus?: string; projectName?: string; createdAt?: string; updatedAt?: string; noteCount?: number; attachmentCount?: number; tags?: string[]; id: string; title: string; status: string; assignee: string; url: string; section?: string; due?: string; subtasks?: number; assigneeId?: string; customFields?: { id: string; name: string; type: string; displayValue: string; color?: string }[]; parent?: { id: string; title: string } | null }
 export type IssueDetail = Issue & { description: string; comments: { id: string; author: string; text: string; at?: string | null }[]; commentsError: string; truncated: boolean }
 export type Page<T> = { items: T[]; next: string | null }
+export type FieldSurface = 'list' | 'detail'
+export type FieldOption = { id: string; name: string }
+export type FieldPreference = { id: string; visible: boolean }
+export type FieldLayout = Partial<Record<FieldSurface, FieldPreference[]>>
+type FieldProject = { project: string; url: string }
 declare module 'orca' {
   interface PluginRequests {
     'connection.read': { output: ConnectionState }
@@ -12,6 +17,9 @@ declare module 'orca' {
     'project.bind': { input: { scope: string; id: string }; output: Project }
     'view.save': { input: { tab: 'mine' | 'all' }; output: { ok: true } }
     'projects.list': { input: { cursor: string | null; query?: string }; output: Page<Project> }
+    'fields.read': { input: FieldProject; output: FieldLayout }
+    'fields.catalog': { input: FieldProject; output: FieldOption[] }
+    'fields.save': { input: FieldProject & { layout: FieldLayout }; output: FieldLayout }
     'issues.subtasks': { input: { id: string }; output: Issue[] }
     'issues.detail': { input: { id: string; project?: string }; output: IssueDetail }
     'issues.list': { input: { project: string; cursor: string | null; tab?: 'mine' | 'all' }; output: Page<Issue> }
