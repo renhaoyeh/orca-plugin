@@ -1,7 +1,7 @@
 export type Project = { id: string; name: string; workspaceId?: string; workspaceName?: string }
 export type ConnectionState = { configured: boolean; url: string; scope?: string; binding?: Project | null; tab?: 'mine' | 'all' }
 export type Issue = { statusId?: number; statusName?: string; statusColor?: string; priority?: string; priorityId?: number; severity?: string; category?: string; resolution?: string; reproducibility?: string; reporter?: string; viewStatus?: string; projectName?: string; createdAt?: string; updatedAt?: string; noteCount?: number; attachmentCount?: number; tags?: string[]; id: string; title: string; status: string; assignee: string; url: string; section?: string; due?: string; subtasks?: number; assigneeId?: string; customFields?: { id: string; name: string; type: string; displayValue: string; color?: string }[]; parent?: { id: string; title: string } | null }
-export type IssueDetail = Issue & { description: string; comments: { id: string; author: string; text: string; at?: string | null }[]; commentsError: string; truncated: boolean }
+export type IssueDetail = Issue & { description: string; reproductionSteps?: string; comments: { id: string; author: string; text: string; at?: string | null }[]; commentsError: string; truncated: boolean }
 export type Page<T> = { items: T[]; next: string | null }
 export type FieldSurface = 'list' | 'detail'
 export type FieldOption = { id: string; name: string; choices?: string[] }
@@ -27,5 +27,7 @@ declare module 'orca' {
     'issues.selection.read': { input: IssueSelection; output: { id: string | null } }
     'issues.selection.save': { input: IssueSelection & { id: string | null }; output: { ok: true } }
     'issues.list': { input: { project: string; cursor: string | null; tab?: 'mine' | 'all' }; output: Page<Issue> }
+    'agent.options': { output: { workspaceId: string; agents: { id: string; name: string; default: boolean }[] } }
+    'agent.launch': { input: { workspaceId: string; agent: string; prompt: string }; output: { started: true } }
   }
 }

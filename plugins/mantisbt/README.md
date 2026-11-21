@@ -45,6 +45,13 @@ adapted for the sidebar width. Requires Orca 1.4.259+.
   detail/list context. Reopening the sidebar restores the issue that was open for
   that workspace, server and project. Returning to the list clears that selection.
   From issue details, the issue number and Open original open the original issue in the browser.
+- **Start work** below the issue title opens a dialog with the Agents available for the
+  focused workspace. Choose the issue details or share its title and link, then select
+  **Start session**.
+  The handoff includes the issue URL and the bounded description with reproduction steps
+  and additional information, targets the workspace ID revalidated at launch, and opens a
+  new Agent using the user's Chat/CLI preference. It requires the `agent:launch` grant;
+  it does not create a worktree or change MantisBT.
 
 Status swatches use the configured server color when it supplies a hexadecimal color,
 with standard Mantis colors as fallbacks. Attachment bodies/images are not downloaded; only counts
@@ -68,6 +75,8 @@ The trusted Node worker requires:
 - `secrets:own`: encrypted `connection.v1`, retaining the original plugin/storage identity.
 - `storage:own`: nonsecret project bindings, Mine/All preference, field layouts and the open issue ID.
 - `workspace:read`: repository/folder/host context; no project file reads are performed.
+- `agent:launch`: run Orca's installed-agent discovery and, after the person's explicit
+  click, launch a new Agent in the revalidated current workspace.
 
 Node fetch runs outside host capability enforcement, with the user's machine access.
 It sends a token only to the explicitly configured Mantis server, tries raw then Bearer

@@ -4,7 +4,7 @@
   "name": "Asana",
   "icon": "assets/asana.png",
   "version": "0.1.0",
-  "description": "Connect a personal access token and browse Asana project tasks. Read-only.",
+  "description": "Connect a personal access token, browse Asana tasks and explicitly hand them to a new Agent.",
   "engines": { "orca": ">=1.4.259" },
   "execution": "trusted-worker",
   "pluginApi": 1,
@@ -12,5 +12,5 @@
   "contributes": {
     "panels": [{ "id": "issues", "title": "Asana", "icon": "blocks", "entry": "src/panel.html", "ui": "html" }]
   },
-  "capabilities": [{ "kind": "secrets:own" }, { "kind": "storage:own" }, { "kind": "workspace:read" }]
+  "capabilities": [{ "kind": "secrets:own" }, { "kind": "storage:own" }, { "kind": "workspace:read" }, { "kind": "agent:launch" }]
 }

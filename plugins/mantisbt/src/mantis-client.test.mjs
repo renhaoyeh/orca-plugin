@@ -52,7 +52,7 @@ test('internal details retain notes, steps, custom fields, sorted comments and p
     const url = new URL(value)
     if (!/\/issues\/\d+$/.test(url.pathname)) return json(auxiliary(url))
     const id = Number(url.pathname.split('/').at(-1))
-    return json({ issues: [{ ...row(id, id === 45 ? 60 : 45), description: 'Description', steps_to_reproduce: 'Open login', additional_information: 'Windows', notes: [{ id: 2, text: 'Later', created_at: '2020-01-02', reporter: { name: 'Reporter' } }, { id: 1, text: 'Earlier', created_at: '2020-01-01' }], relationships: id === 42 ? [{ type: { name: 'child-of' }, issue: { id: 41, summary: 'Parent' } }, { type: { name: 'parent-of' }, issue: { id: 44 } }, { type: { name: 'parent-of' }, issue: { id: 45 } }] : [] }] })
+    return json({ issues: [{ ...row(id, id === 45 ? 60 : 45), description: id === 44 ? 'D'.repeat(16001) : 'Description', steps_to_reproduce: 'Open login', additional_information: 'Windows', notes: [{ id: 2, text: 'Later', created_at: '2020-01-02', reporter: { name: 'Reporter' } }, { id: 1, text: 'Earlier', created_at: '2020-01-01' }], relationships: id === 42 ? [{ type: { name: 'child-of' }, issue: { id: 41, summary: 'Parent' } }, { type: { name: 'parent-of' }, issue: { id: 44 } }, { type: { name: 'parent-of' }, issue: { id: 45 } }] : [] }] })
   })
   const detail = await api.detail('42')
   assert.equal(detail.parent.id, '41'); assert.equal(detail.subtasks, 2)
@@ -60,6 +60,9 @@ test('internal details retain notes, steps, custom fields, sorted comments and p
   assert.match(detail.description, /Additional information:\nWindows/)
   assert.equal(detail.comments[0].text, 'Earlier'); assert.equal(detail.comments[0].at, '2020-01-01')
   assert.deepEqual((await api.subtasks('42')).map(item => item.id), ['44'])
+  const longDetail = await api.detail('44')
+  assert.equal(longDetail.description.length, 16000)
+  assert.equal(longDetail.reproductionSteps, 'Open login')
   await assert.rejects(api.detail('45'), /resolved or deleted/)
 })
 test('deleted issues and unavailable server configuration are reported instead of silently inventing status thresholds', async () => {

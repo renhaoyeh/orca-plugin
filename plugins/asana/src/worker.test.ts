@@ -74,3 +74,35 @@ test('invalid tokens do not overwrite existing credentials and Mine/All preferen
   assert.equal((await worker.request('connection.read')).tab, 'all')
   await worker.deactivate()
 })
+
+test('Agent handoff discovers available CLIs and only launches in the still-focused workspace', async () => {
+  const host = mockHost({ capabilities: [...capabilities, 'workspace:read', 'agent:launch'], results: {
+    'workspace.readContext': { workspaceId: 'ws-1', branch: 'main', displayName: 'Workspace', terminals: [] },
+    'workspace.list': { workspaces: [{ id: 'ws-1', path: 'C:/repo', hostId: 'local', kind: 'worktree', name: 'Workspace', branch: 'main', projectId: 'repo-1' }], truncated: false },
+  } })
+  const calls: string[][] = []
+  const runCli = async (args: string[]) => {
+    calls.push(args)
+    return args[1] === 'installed' ? { agents: [{ id: 'codex', name: 'Codex', default: true }] } : {}
+  }
+  const worker = await mountWorker({ default: createWorker(() => fake, async () => 'repo-a', runCli) }, { host })
+  assert.deepEqual(await worker.request('agent.options', undefined), { workspaceId: 'ws-1', agents: [{ id: 'codex', name: 'Codex', default: true }] })
+  assert.deepEqual(await worker.request('agent.launch', { workspaceId: 'ws-1', agent: 'codex', prompt: 'Reviewed task' }), { started: true })
+  assert.deepEqual(calls.map(args => args.slice(0, 4)), [
+    ['agent', 'installed', '--worktree', 'id:ws-1'],
+    ['agent', 'launch', '--agent', 'codex'],
+  ])
+  assert.deepEqual(worker.refusals, [])
+  await worker.deactivate()
+})
+
+test('Agent handoff rejects a changed workspace before launch', async () => {
+  const host = mockHost({ capabilities: [...capabilities, 'workspace:read', 'agent:launch'], results: {
+    'workspace.readContext': { workspaceId: 'ws-other', branch: 'main', displayName: 'Other', terminals: [] },
+  } })
+  let calls = 0
+  const worker = await mountWorker({ default: createWorker(() => fake, async () => 'repo-a', async () => { calls++; return {} }) }, { host })
+  await assert.rejects(worker.request('agent.launch', { workspaceId: 'ws-1', agent: 'codex', prompt: 'Reviewed task' }), /Workspace changed/)
+  assert.equal(calls, 0)
+  await worker.deactivate()
+})

@@ -2,6 +2,7 @@ import type { OrcaWorkerApi } from 'orca/worker'
 import type { ConnectionState, FieldOption, Issue, IssueDetail, Page, Project } from './protocol'
 import { storageKey } from './storage-key.mjs'
 import { normalizeLayout } from './fields'
+import { installedAgents, launchAgent, runOrcaCli } from './agent-launch.mjs'
 import { requestCache } from './request-cache'
 import { mantisClient } from './mantis-client.mjs'
 import { connection, normalizeServer } from './api.mjs'
@@ -30,8 +31,20 @@ type MantisClient = {
 export function createWorker(
   makeClient: (kind: 'mantisbt', config: ReturnType<typeof connection>) => MantisClient = mantisClient,
   readScope = workspaceScope,
+  runCli: (args: string[]) => Promise<any> = runOrcaCli,
 ) {
   return async function activate(orca: OrcaWorkerApi) {
+    async function agentWorkspace(expectedWorkspaceId?: string) {
+      const context = await orca.host.call('workspace.readContext', {})
+      const workspaceId = context?.workspaceId
+      if (!workspaceId) throw Error('Open a workspace before launching an Agent.')
+      if (expectedWorkspaceId !== undefined && workspaceId !== expectedWorkspaceId) throw Error('Workspace changed. Reopen MantisBT before launching an Agent.')
+      const list = await orca.host.call('workspace.list', {})
+      if (list.truncated) throw Error('Workspace list is incomplete. Cannot safely launch an Agent.')
+      const workspace = list.workspaces.find(row => row.id === workspaceId)
+      if (!workspace) throw Error('Workspace changed. Reopen MantisBT before launching an Agent.')
+      return workspace.id
+    }
     let saving = false
     const maxAge = 2 * 60_000
     const issues = requestCache<Page<Issue>>(maxAge, 24)
@@ -143,6 +156,16 @@ export function createWorker(
     orca.panels.handle('issues.list', input => {
       const { project, cursor = null, tab = 'mine' } = input
       return issues.load(JSON.stringify([project, cursor, tab]), async () => (await api()).issues(project, cursor, tab))
+    })
+    orca.panels.handle('agent.options', async () => {
+      if (!orca.grantedCapabilities.includes('agent:launch')) throw Error('Allow Agent launch in this plugin\'s access review first.')
+      const workspaceId = await agentWorkspace()
+      return { workspaceId, agents: await installedAgents(runCli, workspaceId) }
+    })
+    orca.panels.handle('agent.launch', async input => {
+      if (!orca.grantedCapabilities.includes('agent:launch')) throw Error('Allow Agent launch in this plugin\'s access review first.')
+      if (typeof input?.workspaceId !== 'string' || typeof input.agent !== 'string' || typeof input.prompt !== 'string' || !input.prompt.trim()) throw Error('Choose an Agent and review its issue prompt.')
+      return launchAgent(runCli, await agentWorkspace(input.workspaceId), input.agent, input.prompt)
     })
   }
 }

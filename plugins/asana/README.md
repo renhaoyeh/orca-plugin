@@ -38,6 +38,12 @@ in the same panel. Use **Open in Asana** in the task toolbar to open its web pag
   Back restores the prior detail or filtered list. Comment dates are displayed.
   Comments and subtasks use the original all-page/open-item policies. Completed/deleted
   task previews are rejected. Detail history is in memory only.
+- **Start work** below the task title opens a dialog with the Agents available for the
+  focused workspace. Choose the task details or share its title and link, then select
+  **Start session**.
+  The handoff targets the workspace ID revalidated at launch and opens a new Agent using
+  the user's Chat/CLI preference. It requires the `agent:launch` grant; it does not create
+  a worktree or change Asana.
 - Only an explicit **Open in Asana** press launches the browser. The panel uses
   read-only API requests and keeps a short-lived in-memory cache in the worker.
   Disconnect clears this plugin's local token.
@@ -64,6 +70,8 @@ Requires Orca 1.4.259+ and its trusted Node worker. Host capabilities:
 - `secrets:own`: this plugin's encrypted token (`connection.v1`), never returned to the panel.
 - `storage:own`: nonsecret repository/project bindings and Mine/All preference.
 - `workspace:read`: identify the active repository/folder/host, not read project files.
+- `agent:launch`: list installed Agents and launch a new Agent in the current workspace
+  only after the person reviews the prompt and clicks Launch.
 
 The worker uses read-only Node fetch outside host capability enforcement, only to
 `https://app.asana.com/api/1.0`. Every request rejects redirects, uses normal TLS,

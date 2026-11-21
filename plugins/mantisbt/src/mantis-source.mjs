@@ -161,7 +161,8 @@ export async function taskDetails(connection, gid, _project, request = fetch) {
   const threshold = await resolvedThreshold(connection, issue.project.id, request);
   const notes = [issue.description, issue.steps_to_reproduce && `Steps to reproduce:\n${issue.steps_to_reproduce}`,
     issue.additional_information && `Additional information:\n${issue.additional_information}`].filter(Boolean).join('\n\n');
-  return { ...normalize(issue, connection, threshold), customFields: await typedCustomFields(issue, connection, request), notes, projects: [String(issue.project.id)], comments: comments(issue) };
+  const reproductionSteps = typeof issue.steps_to_reproduce === 'string' ? issue.steps_to_reproduce.slice(0, 2001) : '';
+  return { ...normalize(issue, connection, threshold), customFields: await typedCustomFields(issue, connection, request), notes, reproductionSteps, projects: [String(issue.project.id)], comments: comments(issue) };
 }
 
 export async function taskComments(connection, gid, request = fetch) {

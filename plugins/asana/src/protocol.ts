@@ -15,5 +15,7 @@ declare module 'orca' {
     'issues.subtasks': { input: { id: string }; output: Issue[] }
     'issues.detail': { input: { id: string; project?: string }; output: IssueDetail }
     'issues.list': { input: { project: string; cursor: string | null; tab?: 'mine' | 'all' }; output: Page<Issue> }
+    'agent.options': { output: { workspaceId: string; agents: { id: string; name: string; default: boolean }[] } }
+    'agent.launch': { input: { workspaceId: string; agent: string; prompt: string }; output: { started: true } }
   }
 }
