@@ -3,7 +3,7 @@
   "id": "git-identity",
   "name": "Git Identity",
   "version": "0.1.0",
-  "description": "Status-bar Git identity, gh account discovery, repository-local authors and GitHub push-account binding.",
+  "description": "Repository Git identity editing, gh account discovery and GitHub push-account binding.",
   "engines": { "orca": ">=1.4.248" },
   "execution": "trusted-worker",
   "pluginApi": 1,
@@ -11,7 +11,6 @@
   "contributes": {
     "panels": [{ "id": "identity", "title": "Git Identity", "icon": "branch", "entry": "src/panel.tsx", "ui": "components" }],
     "commands": [{ "id": "identity.open", "title": "Git Identity: Edit repository author", "when": "workspace" }],
-    "statusBarItems": [{ "id": "identity", "text": "Git", "icon": "branch", "command": "identity.open" }],
     "events": [{ "on": "workspace.changed" }]
   },
   "capabilities": [{ "kind": "workspace:read" }]

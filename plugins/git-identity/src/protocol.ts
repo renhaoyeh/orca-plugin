@@ -10,7 +10,7 @@ declare module 'orca' {
     'github.bind': { input: { workspaceId: string; repoPath: string; revision: string; account: PushAccount | null }; output: IdentityState }
     'github.accounts': { output: { host: string; login: string; available: boolean }[] }
     'github.author': { input: { host: string; login: string }; output: { name: string; email: string } }
-    'identity.read': { input: { locale?: string } | undefined; output: IdentityState }
+    'identity.read': { output: IdentityState }
     'identity.save': { input: { workspaceId: string; repoPath: string; revision: string; name: string; email: string }; output: IdentityState }
   }
 }

@@ -6,12 +6,10 @@ const results = {
   'workspace.readContext': { workspaceId: 'w', branch: 'main', displayName: 'Demo', terminals: [] },
   'workspace.list': { workspaces: [{ id: 'w', kind: 'folder', name: 'Demo', path: 'C:\\demo', branch: null, hostId: 'local' }], truncated: false },
 }
-test('status shows the author; its command opens only the panel, without writing Git config', async () => {
+test('the command opens only the panel, without writing Git config', async () => {
   let opens = 0, saves = 0
   const host = mockHost({ capabilities: ['workspace:read'], results })
   const worker = await mountWorker({ default: createWorker({ readIdentity: async () => identity, saveIdentity: async () => { saves++; return identity }, openPanel: async () => { opens++ } }, undefined, routing) }, { host })
-  const updates = host.callsOf('statusBar.update') as { text: string }[]
-  assert.equal(updates.at(-1)?.text, 'Git · Demo Author')
   await worker.command('identity.open')
   assert.equal(opens, 1); assert.equal(saves, 0)
   await assert.rejects(worker.request('identity.save', { workspaceId: 'other', repoPath: identity.repoPath, revision: 'demo', name: 'Draft', email: identity.email }), /Workspace changed/)
@@ -28,11 +26,5 @@ test('remote workspaces never execute local Git', async () => {
   const state = await worker.request('identity.read')
   assert.equal(state.identity, null); assert.equal(reads, 0)
   assert.ok(state.problem.includes('local Windows'))
-  await worker.request('identity.read', { locale: 'zh-HK' })
-  const updates = host.callsOf('statusBar.update') as { text: string; tooltip: string }[]
-  assert.equal(updates.at(-1)?.text, 'Git · 無法使用')
-  assert.equal(updates.at(-1)?.tooltip, '僅支援本機 Windows Git 工作區。')
-  await worker.request('identity.read', { locale: 'fr-FR' })
-  assert.equal((host.callsOf('statusBar.update') as { text: string }[]).at(-1)?.text, 'Git · Unavailable')
   await worker.deactivate()
 })

@@ -58,7 +58,7 @@ async function refresh() {
   const request = ++revision
   set(state, null); set(error, ''); set(notice, ''); set(selected, 'default')
   try {
-    const value = await plugin.request('identity.read', { locale: env.locale })
+    const value = await plugin.request('identity.read')
     if (request === revision) apply(value)
   } catch (cause) { if (request === revision) set(error, cause instanceof Error ? cause.message : String(cause)) }
 }

@@ -5,7 +5,7 @@ under `plugins/`.
 
 | Plugin | Description |
 | --- | --- |
-| [Git Identity](plugins/git-identity/README.md) | Repository Git identity in the status bar, gh account discovery, local author editing and per-repo push-account binding. Windows prototype. |
+| [Git Identity](plugins/git-identity/README.md) | Repository Git identity editing, gh account discovery and per-repo push-account binding. Windows prototype. |
 | [MantisBT](plugins/mantisbt/README.md) | API token connection, project picker, read-only issues and inline details/comments. |
 | [Asana](plugins/asana/README.md) | Personal access token connection, project picker, read-only tasks and inline details/comments. |
 | [Agent Usage](plugins/agent-usage/README.md) | Per-account remaining allowance and reset times in one sidebar. |

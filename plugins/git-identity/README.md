@@ -1,9 +1,8 @@
 # Git Identity
 
-A Windows Orca plugin showing `Git · Name` in the bottom status bar, or the bound
-GitHub login when present. Click to inspect the repository's commit author, import a
-public profile from a `gh` account, and explicitly save an author or push binding.
-It does not inject controls into Source Control or choose its status-item position.
+A Windows Orca plugin for inspecting and editing a repository's commit author,
+importing a public profile from a `gh` account, and explicitly saving an author or
+push binding. Open the Git Identity panel from its command or panel entry.
 
 ## Development
 
@@ -22,7 +21,7 @@ for optional checking with a separately installed TypeScript (`tsc -p .`).
 
 ## Usage
 
-1. Click the Git status item. The compact panel shows only the account picker and
+1. Open the Git Identity panel. The compact panel shows only the account picker and
    name/email fields. The repository caption, technical scope, config origin and full paths stay
    out of the normal UI. Switching workspaces refreshes the current repository;
    Refresh also reloads external config changes and `gh` accounts. No polling.
