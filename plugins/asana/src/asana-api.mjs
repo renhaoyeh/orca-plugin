@@ -26,3 +26,7 @@ export const getTask = (token, task, options = {}, request = fetch) =>
   get(token, `/tasks/${id(task)}`, options, request);
 export const listStories = (token, task, options = {}, request = fetch) =>
   get(token, `/tasks/${id(task)}/stories`, options, request);
+export const listAttachments = (token, task, options = {}, request = fetch) =>
+  get(token, '/attachments', { ...options, parent: task }, request);
+export const getAttachment = (token, attachment, options = {}, request = fetch) =>
+  get(token, `/attachments/${id(attachment)}`, options, request);

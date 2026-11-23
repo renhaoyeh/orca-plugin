@@ -212,6 +212,113 @@ function projectPicker() {
   }
 }
 
+function imageAttachments(images: NonNullable<IssueDetail['images']>, inline = false) {
+  const section = inline ? element('span', 'inline-attachment') : element('section', 'detail-section', element('h2', '', t('Images')))
+  const list = element('span', 'attachment-images')
+  const full = element('img', 'attachment-full')
+  const dialog = element('dialog', 'attachment-preview')
+  dialog.addEventListener('click', event => {
+    if (event.target !== dialog) return
+    const bounds = dialog.getBoundingClientRect()
+    if (event.clientX < bounds.left || event.clientX >= bounds.right ||
+        event.clientY < bounds.top || event.clientY >= bounds.bottom) dialog.close()
+  })
+  const close = iconButton('close', t('Close image'), () => dialog.close())
+  close.classList.add('attachment-preview-close')
+  const unavailable = element('p', 'muted', t('Image unavailable. Refresh to retry.'))
+  unavailable.hidden = true
+  let activeImage = ''
+  dialog.append(close, full, unavailable)
+  for (const image of images) {
+    let preview: Promise<string> | undefined
+    const loadPreview = () => preview ??= frame.plugin.request('images.preview', { id: image.id }, { timeoutMs: 25_000 })
+    const thumbnail = element('img')
+    const placeholder = element('span', 'attachment-placeholder')
+    placeholder.setAttribute('aria-hidden', 'true')
+    thumbnail.alt = ''
+    thumbnail.hidden = true
+    thumbnail.addEventListener('load', () => {
+      placeholder.hidden = true
+      thumbnail.hidden = false
+    })
+    thumbnail.referrerPolicy = full.referrerPolicy = 'no-referrer'
+    thumbnail.addEventListener('error', () => {
+      thumbnail.hidden = true
+      if (thumbnail.src.startsWith('data:')) {
+        placeholder.hidden = true
+        return
+      }
+      void loadPreview().then(url => {
+        if (!thumbnail.isConnected) return
+        thumbnail.src = url
+      }).catch(() => {
+        preview = undefined
+        placeholder.hidden = true
+      })
+    })
+    thumbnail.src = image.url
+    const tile = button(inline ? 'attachment-inline-image' : 'attachment-image', async () => {
+      activeImage = image.id
+      dialog.setAttribute('aria-label', image.name)
+      full.alt = image.name
+      unavailable.hidden = true
+      full.hidden = true
+      full.removeAttribute('src')
+      full.onerror = () => {
+        full.hidden = true
+        unavailable.hidden = false
+      }
+      dialog.showModal()
+      try {
+        const url = await loadPreview()
+        if (!dialog.open || activeImage !== image.id) return
+        full.src = url
+        full.hidden = false
+      } catch {
+        preview = undefined
+        if (dialog.open && activeImage === image.id) unavailable.hidden = false
+      }
+    }, placeholder, thumbnail)
+    tile.setAttribute('aria-label', image.name)
+    list.append(tile)
+  }
+  section.append(list, dialog)
+  return section
+}
+
+const descriptionTags = new Set(['div', 'p', 'br', 'strong', 'b', 'em', 'i', 'u', 's', 'code', 'pre', 'ul', 'ol', 'li', 'blockquote', 'h1', 'h2', 'h3', 'hr'])
+function taskDescription(entry: IssueDetail) {
+  const inlineIds = new Set<string>()
+  const fallback = element('p', entry.description ? 'body-copy' : 'muted', entry.description || t('No description.'))
+  if (!entry.descriptionHtml || !entry.images?.length) return { body: fallback, inlineIds }
+  const images = new Map(entry.images.map(image => [image.id, image]))
+  const template = element('template')
+  template.innerHTML = entry.descriptionHtml
+  const body = element('div', 'rich-description')
+  function appendChildren(source: ParentNode, target: HTMLElement) {
+    for (const child of source.childNodes) {
+      if (child.nodeType === Node.TEXT_NODE) {
+        target.append(child.textContent ?? '')
+      } else if (child instanceof Element) {
+        const tag = child.localName
+        if (tag === 'img') {
+          const image = images.get(child.getAttribute('data-asana-gid') ?? '')
+          if (image && child.getAttribute('data-asana-deleted') !== 'true') {
+            inlineIds.add(image.id)
+            target.append(imageAttachments([image], true))
+          }
+        } else if (tag !== 'script' && tag !== 'style') {
+          const container = descriptionTags.has(tag) ? document.createElement(tag) : target
+          appendChildren(child, container)
+          if (container !== target) target.append(container)
+        }
+      }
+    }
+  }
+  appendChildren(template.content, body)
+  return { body: inlineIds.size ? body : fallback, inlineIds }
+}
+
 function details(entry: IssueDetail, handoff: HTMLButtonElement) {
   const content = element('article', 'detail-content')
   const title = element('h1', 'task-title', entry.title)
@@ -232,8 +339,11 @@ function details(entry: IssueDetail, handoff: HTMLButtonElement) {
     const value = displayValue || '—'
     field(name, ['enum', 'multi_enum'].includes(type) && displayValue ? element('span', `chip tone-${fieldTone(color, displayValue)}`, value) : value)
   }
-  content.append(element('div', 'task-heading', element('div', 'task-heading-title', title), handoff), meta, element('section', 'detail-section', element('h2', '', t('Description')),
-    element('p', entry.description ? 'body-copy' : 'muted', entry.description || t('No description.'))))
+  const { body, inlineIds } = taskDescription(entry)
+  content.append(element('div', 'task-heading', element('div', 'task-heading-title', title), handoff), meta,
+    element('section', 'detail-section', element('h2', '', t('Description')), body))
+  const attachments = entry.images?.filter(image => !inlineIds.has(image.id))
+  if (attachments?.length) content.append(imageAttachments(attachments))
   if (entry.subtasks) {
     const list = element('ul', 'task-list', ...state.children.map(task => element('li', '', taskRow(task))))
     const children = state.children.length ? list : state.busy ? skeleton('tasks', 2) : element('p', 'muted', state.problem ? '' : t('No open subtasks.'))

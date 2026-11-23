@@ -62,8 +62,8 @@ export async function openSubtasks(token, parent, request = fetch) {
 // Resolves null when the task was deleted.
 export async function taskDetails(token, gid, project, request = fetch) {
   try {
-    const task = (await asanaApi.getTask(token, gid, { opt_fields: `notes,completed,projects.gid,parent.name,parent.permalink_url,${taskFields}` }, request)).data;
-    return { ...normalize({ ...task, gid }, project), notes: task.notes || '', completed: Boolean(task.completed),
+    const task = (await asanaApi.getTask(token, gid, { opt_fields: `notes,html_notes,completed,projects.gid,parent.name,parent.permalink_url,${taskFields}` }, request)).data;
+    return { ...normalize({ ...task, gid }, project), notes: task.notes || '', htmlNotes: task.html_notes || '', completed: Boolean(task.completed),
       projects: (task.projects || []).map(item => item.gid),
       parent: task.parent ? { gid: task.parent.gid, name: task.parent.name || 'Untitled task', url: task.parent.permalink_url || '' } : null };
   } catch (error) {
