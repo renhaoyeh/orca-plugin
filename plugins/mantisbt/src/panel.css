@@ -60,8 +60,8 @@ svg { width: 16px; height: 16px; flex: 0 0 auto; fill: none; stroke: currentColo
 .project-result[aria-current="true"] { background: var(--breadcrumb); color: var(--accent); }
 
 .view-bar { display: flex; gap: 5px; padding: 5px 8px; background: var(--sidebar); }
-.view-button, .more-button, .disconnect { min-height: 28px; padding: 3px 9px; border: 1px solid #8fbce3; border-radius: 3px; background: #fff; color: var(--accent); }
-.view-button:not(:disabled):hover, .more-button:not(:disabled):hover, .disconnect:not(:disabled):hover { background: var(--hover); }
+.view-button, .more-button, .disconnect, .handoff-trigger { min-height: 28px; padding: 3px 9px; border: 1px solid #8fbce3; border-radius: 3px; background: #fff; color: var(--accent); }
+.view-button:not(:disabled):hover, .more-button:not(:disabled):hover, .disconnect:not(:disabled):hover, .handoff-trigger:not(:disabled):hover { background: var(--hover); }
 .view-button[aria-pressed="true"], .view-button[aria-pressed="true"]:hover { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 650; }
 .filters { padding: 7px 8px; background: #f5f5f5; border-block: 1px solid var(--rule); }
 .filter-toolbar, .filter-selection, .field-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
@@ -172,16 +172,8 @@ button.section-toggle:hover { background: var(--breadcrumb); }
 .comment { margin: 7px; border: 1px solid var(--table-rule); }
 .handoff-trigger {
   justify-self: start;
-  min-height: 32px;
-  padding: 5px 11px;
-  border: 1px solid transparent;
-  border-radius: var(--orca-radius, 6px);
-  color: var(--orca-primary-foreground, light-dark(#fff, #232327));
-  background: var(--orca-primary, light-dark(#242429, #f4f4f5));
-  font-weight: 600;
   white-space: nowrap;
 }
-.handoff-trigger:hover { filter: brightness(.9); }
 .handoff-dialog {
   width: min(420px, calc(100% - 20px));
   max-height: calc(100% - 20px);
