@@ -163,13 +163,33 @@ button.section-toggle:hover { background: var(--breadcrumb); }
 .detail-section-divider dt, .detail-section-divider dd { padding: 0; border: 0; background: transparent; }
 .detail-section-divider::before, .detail-section-divider .field-divider { border-color: currentColor; opacity: .4; }
 .description > * { border-bottom: 0; }
+.image-widget { margin: 0; border: 0; border-top: 1px solid var(--table-rule); }
+.attachment-images { display: flex; flex-wrap: wrap; gap: 8px; padding: 8px; }
+.attachment-image { width: 120px; height: 120px; overflow: hidden; border: 1px solid var(--rule); border-radius: 3px; background: var(--row); }
+.attachment-image:hover { border-color: var(--accent); }
+.attachment-image img, .attachment-placeholder { width: 100%; height: 100%; }
+.attachment-image img { object-fit: cover; vertical-align: top; }
+.attachment-placeholder:not([hidden]) { display: block; background: #dce5eb; animation: attachment-pulse 1.5s ease-in-out infinite alternate; }
+@keyframes attachment-pulse { to { opacity: .45; } }
+@media (prefers-reduced-motion: reduce) { .attachment-placeholder { animation: none; } }
+.attachment-preview { width: fit-content; max-width: calc(100% - 24px); max-height: calc(100% - 24px); padding: 0; border: 0; color: #fff; background: transparent; }
+.attachment-preview::backdrop { background: #000b; }
+.attachment-preview .icon-button { position: fixed; color: #fff; background: #3a3a3a; }
+.attachment-preview .icon-button:hover { background: #535353; }
+.attachment-preview-close { inset: 12px 12px auto auto; }
+.attachment-nav { top: 50%; transform: translateY(-50%); }
+.attachment-prev { left: 12px; }
+.attachment-next { right: 12px; }
+.attachment-preview > p { margin: 0; padding: 8px 12px; }
+.attachment-full:not([hidden]) { display: block; max-width: 100%; max-height: calc(100vh - 60px); object-fit: contain; }
+.activity-files { margin: 8px 0 0; padding-left: 20px; }
 .tone-danger { color: var(--danger); }
 .tone-warning { color: var(--warning); }
 .tone-success { color: var(--success); }
 .tone-accent { color: var(--accent); }
 .parent-task { display: flex; align-items: center; gap: 6px; width: 100%; padding: 6px; }
 .body-copy { white-space: pre-wrap; overflow-wrap: anywhere; }
-.comment { margin: 7px; border: 1px solid var(--table-rule); }
+.comments .comment { margin: 8px; padding: 8px; border: 1px solid var(--table-rule); border-radius: 4px; background: var(--row); }
 .handoff-trigger {
   justify-self: start;
   white-space: nowrap;
@@ -215,7 +235,9 @@ button.section-toggle:hover { background: var(--breadcrumb); }
 .comment-author { display: flex; align-items: center; flex-wrap: wrap; gap: 5px 10px; padding: 5px 7px; background: var(--category); }
 .comment-author strong { display: flex; align-items: center; gap: 4px; overflow-wrap: anywhere; }
 .comment-author time { font-size: 11px; }
-.comment > p { background: var(--note); border-top: 1px solid var(--table-rule); padding: 7px; }
+.activity-body { background: var(--note); border-top: 1px solid var(--table-rule); }
+.activity-body > p, .activity-body > .activity-files { padding-block: 7px; }
+.activity-body > p { padding-inline: 7px; }
 .comments > p, .related > p { padding: 8px; }
 .connection { display: grid; gap: 7px; padding: 10px; }
 .connection label { font-weight: 600; }

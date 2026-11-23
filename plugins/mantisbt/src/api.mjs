@@ -19,7 +19,8 @@ export function client(_kind, saved, fetcher = fetch) {
     const url = new URL(base + resource)
     if (!resource.startsWith('/') || /[\\?#]/.test(resource) || url.origin !== new URL(base).origin || !url.pathname.startsWith(new URL(base).pathname + '/')) throw Error('Invalid MantisBT API path.')
     // MantisBT returns the entire accessible project tree with project metadata in one response.
-    const limitMiB = resource === '/projects' ? 32 : 4
+    const isIssueFile = /^\/issues\/\d+\/files\/\d+$/.test(resource)
+    const limitMiB = resource === '/projects' ? 32 : isIssueFile ? 12 : 4
     for (const [key, value] of Object.entries(query)) if (value !== null && value !== undefined) url.searchParams.set(key, String(value))
     async function send() {
       try { return await fetcher(url.href, { method: 'GET', redirect: 'manual', signal: AbortSignal.timeout(12000), headers: { Accept: 'application/json', Authorization: bearer ? `Bearer ${config.token}` : config.token } }) }

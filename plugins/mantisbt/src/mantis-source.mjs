@@ -148,10 +148,11 @@ async function readIssue(connection, gid, request) {
   return body.issues[0];
 }
 
-const comments = issue => (issue.notes || []).filter(note => note.text?.trim()).map(note => ({
+const comments = issue => (issue.notes || []).filter(note => note.text?.trim() || note.attachments?.length).map(note => ({
   gid: String(note.id), author: note.reporter?.real_name || note.reporter?.name || 'Someone',
   authorLogin: note.reporter?.name || '',
-  authorGid: note.reporter?.id ? String(note.reporter.id) : null, text: note.text.trim(), at: note.created_at || null,
+  authorGid: note.reporter?.id ? String(note.reporter.id) : null, text: note.text?.trim() || '', at: note.created_at || null,
+  attachments: note.attachments,
 })).sort((a, b) => (Date.parse(a.at) || 0) - (Date.parse(b.at) || 0));
 
 export async function taskDetails(connection, gid, _project, request = fetch) {
@@ -162,7 +163,7 @@ export async function taskDetails(connection, gid, _project, request = fetch) {
   const notes = [issue.description, issue.steps_to_reproduce && `Steps to reproduce:\n${issue.steps_to_reproduce}`,
     issue.additional_information && `Additional information:\n${issue.additional_information}`].filter(Boolean).join('\n\n');
   const reproductionSteps = typeof issue.steps_to_reproduce === 'string' ? issue.steps_to_reproduce.slice(0, 2001) : '';
-  return { ...normalize(issue, connection, threshold), customFields: await typedCustomFields(issue, connection, request), notes, reproductionSteps, projects: [String(issue.project.id)], comments: comments(issue) };
+  return { ...normalize(issue, connection, threshold), customFields: await typedCustomFields(issue, connection, request), notes, reproductionSteps, projects: [String(issue.project.id)], comments: comments(issue), attachments: issue.attachments };
 }
 
 export async function taskComments(connection, gid, request = fetch) {

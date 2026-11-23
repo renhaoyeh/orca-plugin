@@ -153,6 +153,7 @@ export function createWorker(
     })
     orca.panels.handle('issues.subtasks', input => subtasks.load(input.id, async () => (await api()).subtasks(input.id)))
     orca.panels.handle('issues.detail', input => details.load(input.id, async () => (await api()).detail(input.id), detail => !detail.commentsError))
+    orca.panels.handle('images.preview', async input => (await api()).image(input.issueId, input.fileId))
     orca.panels.handle('issues.list', input => {
       const { project, cursor = null, tab = 'mine' } = input
       return issues.load(JSON.stringify([project, cursor, tab]), async () => (await api()).issues(project, cursor, tab))

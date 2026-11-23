@@ -12,6 +12,7 @@ const icons = {
   folder: 'M2 6a1 1 0 0 1 1-1h4l2 2h8a1 1 0 0 1 1 1v7a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1Z',
   down: 'm5 8 5 5 5-5',
   right: 'm8 5 5 5-5 5',
+  left: 'm12 5-5 5 5 5',
   up: 'm5 12 5-5 5 5',
   back: 'm9 5-5 5 5 5m-5-5h12',
   close: 'm5 5 10 10M15 5 5 15',
@@ -417,6 +418,91 @@ function projectPicker() {
   }
 }
 
+function issueImages(issueId: string, images: NonNullable<IssueDetail['attachments']>, inComment = false) {
+  const list = element('div', 'attachment-images')
+  const dialog = element('dialog', 'attachment-preview')
+  const full = element('img', 'attachment-full')
+  const status = element('p')
+  const close = iconButton('close', t('Close image'), () => dialog.close())
+  close.classList.add('attachment-preview-close')
+  dialog.append(close, full, status)
+  dialog.addEventListener('click', event => {
+    if (event.target !== dialog) return
+    const bounds = dialog.getBoundingClientRect()
+    if (event.clientX < bounds.left || event.clientX >= bounds.right ||
+        event.clientY < bounds.top || event.clientY >= bounds.bottom) dialog.close()
+  })
+  let active = 0
+  let selected = 0
+  const loaders = images.map(image => {
+    let preview: Promise<string> | undefined
+    return () => preview ??= frame.plugin.request('images.preview', { issueId, fileId: image.id }, { timeoutMs: 25_000 })
+      .catch(error => { preview = undefined; throw error })
+  })
+  async function show(index: number) {
+    selected = (index + images.length) % images.length
+    const image = images[selected]
+    const current = ++active
+    full.hidden = true
+    full.removeAttribute('src')
+    full.alt = image.name
+    status.hidden = false
+    status.textContent = t('Loading image…')
+    dialog.setAttribute('aria-label', image.name)
+    if (!dialog.open) dialog.showModal()
+    try {
+      const url = await loaders[selected]()
+      if (!dialog.open || current !== active) return
+      full.onload = () => {
+        if (current !== active) return
+        full.hidden = false
+        status.hidden = true
+      }
+      full.onerror = () => {
+        if (current === active) status.textContent = t('Image unavailable.')
+      }
+      full.src = url
+    } catch {
+      if (dialog.open && current === active) status.textContent = t('Image unavailable.')
+    }
+  }
+  if (images.length > 1) {
+    for (const [direction, arrow, label] of [[-1, 'left', 'Previous image'], [1, 'right', 'Next image']] as const) {
+      const control = iconButton(arrow, t(label), () => show(selected + direction))
+      control.classList.add('attachment-nav', direction < 0 ? 'attachment-prev' : 'attachment-next')
+      dialog.append(control)
+    }
+    dialog.addEventListener('keydown', event => {
+      if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return
+      event.preventDefault()
+      void show(selected + (event.key === 'ArrowLeft' ? -1 : 1))
+    })
+  }
+  const preload = images.map((image, index) => {
+    const thumbnail = element('img')
+    thumbnail.alt = ''
+    thumbnail.hidden = true
+    const placeholder = element('span', 'attachment-placeholder')
+    placeholder.setAttribute('aria-hidden', 'true')
+    thumbnail.onload = () => { thumbnail.hidden = false; placeholder.hidden = true }
+    thumbnail.onerror = () => { placeholder.hidden = true }
+    const tile = button('attachment-image', () => show(index), placeholder, thumbnail)
+    tile.setAttribute('aria-label', image.name)
+    list.append(tile)
+    return async () => {
+      try { thumbnail.src = await loaders[index]() } catch { placeholder.hidden = true }
+    }
+  })
+  queueMicrotask(async () => {
+    for (const load of preload) {
+      if (!list.isConnected) break
+      await load()
+    }
+  })
+  if (inComment) return element('div', '', list, dialog)
+  return element('section', 'widget image-widget', element('h2', 'widget-title', t('Images')), list, dialog)
+}
+
 function details(entry: IssueDetail, handoff: HTMLButtonElement) {
   const content = element('article', 'detail-content')
   const title = element('h1', 'task-title', entry.title)
@@ -452,11 +538,36 @@ function details(entry: IssueDetail, handoff: HTMLButtonElement) {
   }
   const comments = element('section', 'widget comments', element('h2', 'widget-title', t('Activities')))
   if (entry.commentsError) comments.append(element('p', 'muted', t(entry.commentsError)))
-  else if (!entry.comments.length) comments.append(element('p', 'muted', t('No comments.')))
-  for (const comment of entry.comments) {
+  const uploads = new Map<string, { id: string; author: string; at?: string | null; text: string; attachments: NonNullable<IssueDetail['attachments']>; kind: 'upload' }>()
+  for (const file of entry.attachments || []) {
+    const author = file.author || t('Unknown user')
+    const key = `${file.at || ''}\u0000${file.authorId || author}`
+    const group = uploads.get(key) || { id: `upload-${file.id}`, author, at: file.at, text: '', attachments: [], kind: 'upload' as const }
+    group.attachments.push(file)
+    uploads.set(key, group)
+  }
+  const activities = [
+    ...entry.comments.map(comment => ({
+      ...comment,
+      attachments: comment.attachments ?? (comment.images ?? []).map(image => ({ ...image, image: true })),
+      kind: 'note' as const,
+    })),
+    ...uploads.values(),
+  ].sort((a, b) => (Date.parse(a.at || '') || 0) - (Date.parse(b.at || '') || 0) ||
+    (a.kind === b.kind ? 0 : a.kind === 'upload' ? -1 : 1))
+  if (!entry.commentsError && !activities.length) comments.append(element('p', 'muted', t('No comments.')))
+  for (const comment of activities) {
     const author = element('div', 'comment-author', element('strong', '', icon('person'), comment.author))
     if (comment.at) author.append(element('time', 'muted', formatDate(comment.at)))
-    comments.append(element('div', 'comment', author, element('p', 'body-copy', comment.text)))
+    const activity = element('div', 'comment', author)
+    const body = element('div', 'activity-body')
+    if (comment.text) body.append(element('p', 'body-copy', comment.text))
+    const images = comment.attachments.filter(file => file.image)
+    const otherFiles = comment.attachments.filter(file => !file.image)
+    if (images.length) body.append(issueImages(entry.id, images, true))
+    if (otherFiles.length) body.append(element('ul', 'activity-files', ...otherFiles.map(file => element('li', '', file.name))))
+    activity.append(body)
+    comments.append(activity)
   }
   if (entry.truncated) comments.append(element('p', 'muted', t('Preview shortened. Open original for the full content.')))
   return [content, ...(entry.parent || entry.subtasks ? [related] : []), comments]

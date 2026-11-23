@@ -20,3 +20,5 @@ export const listIssues = (connection, options = {}, request = fetch) => {
 };
 export const getIssue = (connection, issue, request = fetch) =>
   mantisRequest(connection, `/issues/${id(issue)}`, request);
+export const getIssueFile = (connection, issue, file, request = fetch) =>
+  mantisRequest(connection, `/issues/${id(issue)}/files/${id(file)}`, request);
