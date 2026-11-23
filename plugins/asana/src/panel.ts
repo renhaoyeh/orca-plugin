@@ -374,7 +374,9 @@ function agentHandoff() {
 }
 
 function taskDetail() {
-  const back = iconButton('back', t('Back'), () => model.back())
+  const back = button('detail-back', () => model.back(), icon('back'))
+  const backLabel = element('span')
+  back.append(backLabel)
   const close = iconButton('close', t('Back to tasks'), () => model.back(true))
   const external = iconButton('external', t('Open in Asana'), () => {
     if (state.detail?.url) void frame.host.call('shell.openExternal', { url: state.detail.url }).catch(console.warn)
@@ -383,7 +385,9 @@ function taskDetail() {
   const body = element('div', 'detail-body')
   main.append(element('div', 'detail-toolbar', back, element('div', 'actions', external, close)), body, handoff.dialog)
   return () => {
-    back.hidden = !state.history.length
+    const hasHistory = state.history.length > 0
+    backLabel.textContent = t(hasHistory ? 'Back' : 'Back to tasks')
+    close.hidden = !hasHistory
     external.hidden = !state.detail?.url
     handoff.update(state.detail)
     if (state.detail) body.replaceChildren(...details(state.detail, handoff.open))

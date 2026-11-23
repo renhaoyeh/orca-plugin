@@ -123,7 +123,8 @@ button.section-toggle:hover { background: var(--hover); }
 .more-button:not(:disabled):hover { background: var(--hover); }
 
 .detail-toolbar { justify-content: end; position: sticky; top: 0; z-index: 1; background: var(--detail-surface); }
-.detail-toolbar > button:first-child { margin-inline-end: auto; }
+.detail-back { display: flex; align-items: center; gap: 6px; min-height: 32px; margin-inline-end: auto; padding: 4px 8px; border-radius: 6px; color: var(--text); }
+.detail-back:hover { background: var(--quiet-hover); }
 .detail-content { padding: 14px 15px 18px; }
 .task-heading { display: grid; justify-items: start; gap: 8px; min-width: 0; margin: 3px 0 16px; }
 .task-heading-title { min-width: 0; max-width: 100%; }
