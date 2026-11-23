@@ -204,8 +204,8 @@ function taskRow(issue: Issue) {
   }
   if (!layout) {
     const context = element('span', 'row-context',
-      element('span', 'row-status', ...fieldContent(issue, 'status', 'list')),
-      element('span', 'row-assignee', ...fieldContent(issue, 'assignee', 'list')))
+      element('span', 'row-assignee', ...fieldContent(issue, 'assignee', 'list')),
+      element('span', 'row-status', ...fieldContent(issue, 'status', 'list')))
     row.append(element('span', 'row-topline', identity, context))
   }
   row.append(summary)

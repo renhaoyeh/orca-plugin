@@ -119,8 +119,8 @@ button.section-toggle:hover { background: var(--breadcrumb); }
 .task-row:not(:disabled):hover .task-summary { color: var(--accent); text-decoration: underline; text-underline-offset: 2px; }
 .row-context { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 2px 6px; min-width: 0; max-width: 50%; text-align: end; }
 .row-assignee { min-width: 0; color: var(--muted); font-size: 12px; overflow-wrap: anywhere; }
-.row-status { display: inline-flex; align-items: center; gap: 5px; min-width: 0; padding: 1px 5px; border: 1px solid var(--rule); border-radius: 3px; background: #fff; font-size: 12px; overflow-wrap: anywhere; }
-.row-status .status-swatch { width: 10px; height: 10px; }
+.row-status { display: inline-flex; align-items: center; gap: 5px; max-inline-size: 100%; min-width: 0; padding: 1px 5px; border: 1px solid var(--rule); border-radius: 3px; background: #fff; font-size: 12px; text-align: start; overflow-wrap: anywhere; }
+.row-status .status-swatch { flex: none; width: 10px; height: 10px; }
 .row-meta { display: flex; align-items: center; flex-wrap: wrap; gap: 3px 10px; min-width: 0; }
 .row-meta > span { overflow-wrap: anywhere; }
 .row-field { display: inline-flex; align-items: center; flex-wrap: wrap; gap: 3px; min-width: 0; }
