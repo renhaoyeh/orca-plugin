@@ -231,8 +231,12 @@ button.section-toggle:hover { background: var(--breadcrumb); }
 .priority-color-input { flex: 0 0 32px; width: 32px; height: 28px; padding: 2px; cursor: pointer; }
 .field-row { display: flex; justify-content: space-between; align-items: center; gap: 5px; padding: 4px 7px; border-bottom: 1px solid var(--rule); }
 .field-row:nth-child(odd) { background: var(--row); }
-.field-row .icon-button { color: var(--accent); }
-.field-row .icon-button:not(:disabled):hover { background: var(--breadcrumb); }
+.field-row label { flex: 1; }
+.field-grip { color: var(--accent); padding: 3px 4px; user-select: none; }
+.field-grip[draggable="true"] { cursor: grab; }
+.field-grip[draggable="true"]:active { cursor: grabbing; }
+.field-row.drop-before { box-shadow: inset 0 2px var(--accent); }
+.field-row.drop-after { box-shadow: inset 0 -2px var(--accent); }
 .field-actions { justify-content: flex-end; padding: 8px; }
 
 .skeleton-row { min-height: 37px; border-bottom: 1px solid var(--rule); display: grid; grid-template-columns: 26px minmax(30px, 1fr) 55px; align-items: center; gap: 8px; padding: 0 8px; }

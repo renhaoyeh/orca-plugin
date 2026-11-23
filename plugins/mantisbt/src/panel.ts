@@ -702,6 +702,10 @@ function fieldEditor() {
     priorityColors.update(custom.find(isPmPriority),
       state.detail ? [state.detail, ...state.issues] : state.issues)
     const options = fieldOptions(surface, custom, draft[surface])
+    let draggedIndex: number | undefined
+    function clearDropTarget() {
+      rows.querySelector('.drop-before, .drop-after')?.classList.remove('drop-before', 'drop-after')
+    }
     function change() {
       const known = new Set(options.map(field => field.id))
       const missing = (draft[surface] ?? []).filter(field => !known.has(field.id))
@@ -717,19 +721,48 @@ function fieldEditor() {
       check.disabled = state.busy
       check.dataset.focus = `field-check-${field.id}`
       check.addEventListener('change', () => { field.visible = check.checked; change() })
-      const move = (direction: -1 | 1) => {
-        const up = direction === -1
-        const button = iconButton(up ? 'up' : 'down', `${t(up ? 'Move up' : 'Move down')} · ${name}`, () => {
-          const other = index + direction
-          options[index] = options[other]
-          options[other] = field
-          change()
-        })
-        button.dataset.focus = `field-${direction}-${field.id}`
-        button.disabled = state.busy || index + direction < 0 || index + direction >= options.length
-        return button
+      const grip = element('span', 'field-grip', '⠿')
+      grip.draggable = !state.busy
+      grip.setAttribute('aria-hidden', 'true')
+      grip.addEventListener('dragstart', event => {
+        if (!event.dataTransfer || state.busy) {
+          event.preventDefault()
+          return
+        }
+        draggedIndex = index
+        event.dataTransfer.effectAllowed = 'move'
+        event.dataTransfer.setData('text/plain', name)
+      })
+      grip.addEventListener('dragend', () => {
+        draggedIndex = undefined
+        clearDropTarget()
+      })
+      const row = element('li', 'field-row', grip, element('label', '', check, name))
+      const isAfter = (event: DragEvent) => {
+        const bounds = row.getBoundingClientRect()
+        return event.clientY >= bounds.top + bounds.height / 2
       }
-      return element('li', 'field-row', element('label', '', check, name), element('div', 'actions', move(-1), move(1)))
+      row.addEventListener('dragover', event => {
+        if (draggedIndex === undefined || state.busy) return
+        event.preventDefault()
+        if (event.dataTransfer) event.dataTransfer.dropEffect = 'move'
+        clearDropTarget()
+        if (draggedIndex !== index) row.classList.add(isAfter(event) ? 'drop-after' : 'drop-before')
+      })
+      row.addEventListener('drop', event => {
+        if (draggedIndex === undefined || state.busy) return
+        event.preventDefault()
+        const from = draggedIndex
+        draggedIndex = undefined
+        clearDropTarget()
+        const insertion = index + Number(isAfter(event))
+        const to = insertion > from ? insertion - 1 : insertion
+        if (from === to) return
+        const [moved] = options.splice(from, 1)
+        options.splice(to, 0, moved)
+        change()
+      })
+      return row
     }))
   }
 }
