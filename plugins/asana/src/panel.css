@@ -205,6 +205,9 @@ button.section-toggle:hover { background: var(--hover); }
 .handoff-source, .handoff-status { color: var(--orca-muted-foreground, light-dark(#61616b, #b4b4bc)); }
 .handoff-source { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; overflow: hidden; }
 .handoff-field { display: grid; gap: 5px; min-width: 0; font-weight: 500; }
+.handoff-context { display: grid; gap: 6px; min-width: 0; margin: 0; padding: 8px; border: 1px solid var(--orca-border, #8886); border-radius: 6px; }
+.handoff-choice { display: flex; align-items: center; gap: 6px; }
+.handoff-instructions { font: inherit; resize: vertical; }
 .handoff-select, .handoff-button {
   min-height: 32px;
   border: 1px solid var(--orca-input, light-dark(#d8d8dc, #424247));

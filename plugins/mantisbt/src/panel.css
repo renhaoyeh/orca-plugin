@@ -199,39 +199,43 @@ button.section-toggle:hover { background: var(--breadcrumb); }
   width: min(420px, calc(100% - 20px));
   max-height: calc(100% - 20px);
   padding: 0;
-  border: 1px solid var(--orca-border, light-dark(#d8d8dc, #424247));
-  border-radius: var(--orca-radius, 8px);
-  background: var(--orca-popover, light-dark(#fff, #232327));
-  color: var(--orca-popover-foreground, light-dark(#202024, #f4f4f5));
+  border: 1px solid var(--table-rule);
+  border-radius: 3px;
+  background: var(--background);
+  color: var(--text);
   box-shadow: 0 12px 32px #0004;
-  font: 13px/1.4 var(--orca-font-sans, system-ui, sans-serif);
+  font: inherit;
 }
-:root.dark .handoff-dialog { color-scheme: dark; }
 .handoff-dialog::backdrop { background: #0008; }
-.handoff-content { display: grid; gap: 14px; padding: 16px; }
-.handoff-header { display: grid; gap: 4px; min-width: 0; }
-.handoff-header h2 { font-size: 16px; font-weight: 600; outline: none; }
+.handoff-content { display: grid; gap: 8px; padding: 0 10px 10px; }
+.handoff-header { display: grid; min-width: 0; margin-inline: -10px; }
+.handoff-header h2 { padding: 6px 10px; background: var(--widget); color: #fff; font-size: 14px; font-weight: 600; outline: none; }
 .handoff-source, .handoff-status, .handoff-error { font-size: 12px; overflow-wrap: anywhere; }
-.handoff-source, .handoff-status { color: var(--orca-muted-foreground, light-dark(#61616b, #b4b4bc)); }
-.handoff-source { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; overflow: hidden; }
+.handoff-source, .handoff-status { color: var(--muted); }
+.handoff-source { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; overflow: hidden; padding: 5px 10px; background: var(--breadcrumb); border-bottom: 1px solid var(--table-rule); }
 .handoff-field { display: grid; gap: 5px; min-width: 0; font-weight: 500; }
+.handoff-context { display: grid; gap: 6px; min-width: 0; margin: 0; padding: 8px; border: 1px solid var(--table-rule); background: var(--row); }
+.handoff-context legend { color: var(--accent); font-weight: 600; }
+.handoff-choice { display: flex; align-items: center; gap: 6px; }
+.handoff-choice input { accent-color: var(--accent); }
+.handoff-instructions { font: inherit; resize: vertical; }
 .handoff-select, .handoff-button {
-  min-height: 32px;
-  border: 1px solid var(--orca-input, light-dark(#d8d8dc, #424247));
-  border-radius: var(--orca-radius, 6px);
-  background: var(--orca-popover, light-dark(#fff, #232327));
+  min-height: 28px;
+  border: 1px solid var(--table-rule);
+  border-radius: 3px;
+  background: var(--background);
   color: inherit;
   font: inherit;
 }
 .handoff-select { width: 100%; min-width: 0; padding: 4px 8px; }
-.handoff-select:focus-visible, .handoff-button:focus-visible { outline: 2px solid var(--orca-ring, var(--accent)); outline-offset: 1px; }
+.handoff-select:focus-visible, .handoff-button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .handoff-status:empty, .handoff-error:empty { position: absolute; }
-.handoff-error { color: var(--orca-destructive, light-dark(#a22b37, #fb8894)); }
+.handoff-error { color: var(--danger); }
 .handoff-footer { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
-.handoff-button { padding: 4px 10px; font-weight: 500; }
-.handoff-button:not(:disabled):hover { background: var(--orca-accent, light-dark(#eeeef1, #38383d)); }
-.handoff-start { border-color: transparent; background: var(--orca-primary, light-dark(#242429, #f4f4f5)); color: var(--orca-primary-foreground, light-dark(#fff, #232327)); }
-.handoff-start:not(:disabled):hover { background: var(--orca-primary, light-dark(#242429, #f4f4f5)); filter: brightness(.9); }
+.handoff-button { padding: 3px 9px; border-color: #8fbce3; color: var(--accent); }
+.handoff-button:not(:disabled):hover { background: var(--hover); }
+.handoff-start { border-color: var(--accent); background: var(--accent); color: #fff; }
+.handoff-start:not(:disabled):hover { background: var(--accent); filter: brightness(.9); }
 .handoff-select:disabled, .handoff-button:disabled { opacity: .55; }
 .comment-author { display: flex; align-items: center; flex-wrap: wrap; gap: 5px 10px; padding: 5px 7px; background: var(--category); }
 .comment-author strong { display: flex; align-items: center; gap: 4px; overflow-wrap: anywhere; }
