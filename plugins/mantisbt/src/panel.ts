@@ -421,8 +421,10 @@ function projectPicker() {
 function issueImages(issueId: string, images: NonNullable<IssueDetail['attachments']>, inComment = false) {
   const list = element('div', 'attachment-images')
   const dialog = element('dialog', 'attachment-preview')
-  const full = element('img', 'attachment-full')
+  let full = element('img', 'attachment-full')
+  full.hidden = true
   const status = element('p')
+  status.hidden = true
   const close = iconButton('close', t('Close image'), () => dialog.close())
   close.classList.add('attachment-preview-close')
   dialog.append(close, full, status)
@@ -443,27 +445,37 @@ function issueImages(issueId: string, images: NonNullable<IssueDetail['attachmen
     selected = (index + images.length) % images.length
     const image = images[selected]
     const current = ++active
-    full.hidden = true
-    full.removeAttribute('src')
-    full.alt = image.name
-    status.hidden = false
-    status.textContent = t('Loading image…')
-    dialog.setAttribute('aria-label', image.name)
-    if (!dialog.open) dialog.showModal()
+    status.hidden = true
+    if (!dialog.open) {
+      full.hidden = true
+      dialog.setAttribute('aria-label', image.name)
+      dialog.showModal()
+    }
+    const loading = window.setTimeout(() => {
+      if (!dialog.open || current !== active || !full.hidden) return
+      status.textContent = t('Loading image…')
+      status.hidden = false
+    }, 180)
     try {
       const url = await loaders[selected]()
       if (!dialog.open || current !== active) return
-      full.onload = () => {
-        if (current !== active) return
-        full.hidden = false
-        status.hidden = true
-      }
-      full.onerror = () => {
-        if (current === active) status.textContent = t('Image unavailable.')
-      }
-      full.src = url
+      const next = element('img', 'attachment-full')
+      next.draggable = false
+      next.alt = image.name
+      next.src = url
+      await next.decode()
+      if (!dialog.open || current !== active) return
+      full.replaceWith(next)
+      full = next
+      status.hidden = true
+      dialog.setAttribute('aria-label', image.name)
     } catch {
-      if (dialog.open && current === active) status.textContent = t('Image unavailable.')
+      if (dialog.open && current === active) {
+        status.textContent = t('Image unavailable.')
+        status.hidden = false
+      }
+    } finally {
+      window.clearTimeout(loading)
     }
   }
   if (images.length > 1) {
@@ -480,6 +492,7 @@ function issueImages(issueId: string, images: NonNullable<IssueDetail['attachmen
   }
   const preload = images.map((image, index) => {
     const thumbnail = element('img')
+    thumbnail.draggable = false
     thumbnail.alt = ''
     thumbnail.hidden = true
     const placeholder = element('span', 'attachment-placeholder')
