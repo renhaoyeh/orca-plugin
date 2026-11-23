@@ -216,6 +216,7 @@ button.section-toggle:hover { background: var(--hover); }
 .disconnect:hover { background: var(--danger-soft); }
 
 .skeleton { padding-inline: 12px; }
+.pagination-loading { border-top: 1px solid var(--line); }
 .skeleton-row { min-height: 40px; border-bottom: 1px solid var(--line); display: grid; grid-template-columns: 18px minmax(60px, 1fr) 44px; align-items: center; gap: 8px; }
 .skeleton-row > span { background: linear-gradient(110deg, var(--skeleton) 30%, var(--skeleton-glint) 47%, var(--skeleton) 64%); background-size: 240% 100%; animation: shimmer 1.9s linear infinite; }
 .skeleton-mark { width: 16px; height: 16px; border-radius: 50%; }

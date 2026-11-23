@@ -12,7 +12,7 @@ export function filterValue(issue: Issue, key: FilterKey) {
 
 export function createPanelState(request: PluginBridgeApi['request'], changed: () => void) {
   const state = {
-    config: null as ConnectionState | null, settings: false, busy: false, problem: '', status: '',
+    config: null as ConnectionState | null, settings: false, busy: false, problem: '', paginationFailed: false, status: '',
     server: '', token: '', projects: [] as Project[], project: null as Project | null, picker: true, projectQuery: '',
     issues: [] as Issue[], next: null as string | null, query: '', tab: 'mine' as 'mine' | 'all',
     detailId: '', detail: null as IssueDetail | null, children: [] as Issue[],
@@ -369,7 +369,11 @@ export function createPanelState(request: PluginBridgeApi['request'], changed: (
       patch({ fieldCatalog: null })
       await loadCurrent(current)
     }),
-    more: () => run(current => loadIssues(current, true)),
+    more: () => run(async current => {
+      patch({ paginationFailed: false })
+      try { await loadIssues(current, true) }
+      catch (error) { patch({ paginationFailed: true }); throw error }
+    }),
     fetchAll,
     stopFetchAll: () => { stopFetching = true },
     dispose() {

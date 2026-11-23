@@ -104,6 +104,15 @@ const bar = element('header', 'panel-bar', brand, element('div', 'actions', refr
 const error = element('div', 'error')
 error.setAttribute('role', 'alert')
 const main = element('main', 'panel-main')
+function checkPagination() {
+  if (state.busy || state.problem || screen !== 'tasks' || state.tab !== 'all' || !state.next) return
+  const remaining = main.scrollHeight - main.scrollTop - main.clientHeight
+  if (remaining <= 96) void model.more()
+}
+main.addEventListener('scroll', checkPagination, { passive: true })
+window.addEventListener('resize', checkPagination, { passive: true })
+const paginationResize = new ResizeObserver(checkPagination)
+paginationResize.observe(main)
 document.querySelector('#app')!.append(bar, error, main)
 
 function taskRow(issue: Issue) {
@@ -141,7 +150,7 @@ function taskTable() {
   const all = button('view-button', () => model.selectTab('all'), t('All'))
   const viewBar = element('nav', 'view-bar', mine, all)
   viewBar.setAttribute('aria-label', t('Task views'))
-  const more = button('more-button', () => model.more(), t('Load more'))
+  const more = button('more-button', () => model.more(), t('Retry'))
   main.append(element('div', 'project-header', chooser), viewBar, element('div', 'filters', filter.form), head, rows, more)
   return () => {
     projectLabel.textContent = state.project?.name || t('Choose Asana project')
@@ -149,7 +158,7 @@ function taskTable() {
     mine.setAttribute('aria-pressed', String(state.tab === 'mine'))
     all.setAttribute('aria-pressed', String(state.tab === 'all'))
     if (filter.input.value !== state.query) filter.input.value = state.query
-    more.hidden = !state.next || state.tab !== 'all'
+    more.hidden = state.busy || !state.paginationFailed || !state.next || state.tab !== 'all' || !state.issues.length
     const words = state.query.toLowerCase().trim().split(/\s+/).filter(Boolean)
     const groups = new Map<string, Issue[]>()
     for (const issue of state.issues) {
@@ -174,6 +183,7 @@ function taskTable() {
         return element('section', 'task-section', heading, list)
       }))
     }
+    if (state.busy && state.issues.length) rows.append(element('div', 'pagination-loading', skeleton('tasks')))
   }
 }
 
@@ -470,8 +480,9 @@ function render() {
     detailTitle = state.detail.id
     main.querySelector<HTMLElement>('.task-title')?.focus({ preventScroll: true })
   }
+  checkPagination()
 }
 
 const workspace = frame.on('workspace.changed', ({ context }) => model.onWorkspace(context?.workspaceId || null))
-window.addEventListener('pagehide', () => { workspace.dispose(); model.dispose() }, { once: true })
+window.addEventListener('pagehide', () => { workspace.dispose(); model.dispose(); paginationResize.disconnect() }, { once: true })
 void model.reload()

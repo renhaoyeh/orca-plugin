@@ -165,6 +165,15 @@ const bar = element('header', 'panel-bar', brand, element('div', 'actions', refr
 const error = element('div', 'error')
 error.setAttribute('role', 'alert')
 const main = element('main', 'panel-main')
+function checkPagination() {
+  if (state.busy || state.problem || screen !== 'tasks' || state.tab !== 'all' || !state.next) return
+  const remaining = main.scrollHeight - main.scrollTop - main.clientHeight
+  if (remaining <= 96) void model.more()
+}
+main.addEventListener('scroll', checkPagination, { passive: true })
+window.addEventListener('resize', checkPagination, { passive: true })
+const paginationResize = new ResizeObserver(checkPagination)
+paginationResize.observe(main)
 document.querySelector('#app')!.append(bar, error, main)
 
 function taskRow(issue: Issue) {
@@ -322,7 +331,7 @@ function taskTable() {
   const all = button('view-button', () => model.selectTab('all'), t('All'))
   const viewBar = element('nav', 'view-bar', mine, all)
   viewBar.setAttribute('aria-label', t('Issue views'))
-  const more = button('more-button', () => model.more(), t('Load more'))
+  const more = button('more-button', () => model.more(), t('Retry'))
   const fetchAll = button('view-button', model.fetchAll, t('Fetch all issues'))
   const stop = button('view-button', model.stopFetchAll, t('Stop fetching'))
   const progress = element('span', 'muted')
@@ -350,7 +359,7 @@ function taskTable() {
     toggleFilters.textContent = selectionCount ? `${t('Filters')} (${selectionCount})` : t('Filters')
     toggleFilters.setAttribute('aria-expanded', String(state.filtersOpen))
     fields.disabled = state.busy || !state.project
-    more.hidden = !state.next || state.tab !== 'all'
+    more.hidden = state.busy || !state.paginationFailed || !state.next || state.tab !== 'all' || !state.issues.length
     const words = state.query.toLowerCase().trim().split(/\s+/).filter(Boolean)
     const filtered = !!(words.length || selectedFilters.length)
     const groups = new Map<string, Issue[]>()
@@ -379,6 +388,7 @@ function taskTable() {
         return element('section', 'task-section', heading, list)
       }))
     }
+    if (state.busy && state.issues.length) rows.append(element('div', 'pagination-loading', skeleton('tasks')))
   }
 }
 
@@ -860,6 +870,7 @@ function render() {
     detailTitle = state.detail.id
     if (previous !== 'fields') main.querySelector<HTMLElement>('.task-title')?.focus({ preventScroll: true })
   }
+  checkPagination()
 }
 
 const workspace = frame.on('workspace.changed', ({ context }) => model.onWorkspace(context?.workspaceId || null))
@@ -878,5 +889,5 @@ document.addEventListener('keydown', event => {
     model.back()
   }
 })
-window.addEventListener('pagehide', () => { workspace.dispose(); model.dispose() }, { once: true })
+window.addEventListener('pagehide', () => { workspace.dispose(); model.dispose(); paginationResize.disconnect() }, { once: true })
 void model.reload()

@@ -240,6 +240,7 @@ button.section-toggle:hover { background: var(--breadcrumb); }
 .field-actions { justify-content: flex-end; padding: 8px; }
 
 .skeleton-row { min-height: 37px; border-bottom: 1px solid var(--rule); display: grid; grid-template-columns: 26px minmax(30px, 1fr) 55px; align-items: center; gap: 8px; padding: 0 8px; }
+.pagination-loading { border-top: 1px solid var(--rule); }
 .skeleton-row:nth-child(odd) { background: var(--row); }
 .skeleton-row > span { height: 8px; background: #dce5eb; }
 .skeleton-row > :nth-child(2) { width: 75%; }
