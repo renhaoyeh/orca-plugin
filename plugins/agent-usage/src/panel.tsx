@@ -3,12 +3,13 @@ import {
   Button, IconButton, Box, Badge, Image, Progress, RelativeTime, Skeleton, Callout, EmptyState,
 } from 'orca'
 import { providers, type Provider, type UsageRow, type UsageWindow } from './protocol'
+import { displayPercent } from './usage'
 import { translate } from './i18n'
 
 const data = atom<UsageRow[] | null>(null)
 const busy = atom(false)
 const error = atom('')
-const quotaDisplay = atom<'remaining' | 'used'>('quota-display.v1', 'remaining', { persist: 'plugin' })
+const quotaDisplay = atom<'remaining' | 'used'>('quota-display.v1', 'used', { persist: 'plugin' })
 let panelSignal: AbortSignal | undefined
 
 async function load() {
@@ -79,11 +80,11 @@ function ProviderIcon({ provider }: { provider: Provider }) {
 export default function Panel() {
   const locale = env.locale
   const t = (key: string) => translate(key, locale)
-  const percentage = new Intl.NumberFormat(locale, { style: 'percent', maximumFractionDigits: 1 })
+  const percentage = new Intl.NumberFormat(locale, { style: 'percent', maximumFractionDigits: 0 })
   const rows = (read(data) || []).filter(row => row.windows.length > 0)
   const pending = read(busy)
   const mode = read(quotaDisplay)
-  const modeLabel = t(mode === 'used' ? 'Used' : 'Remaining')
+  const modeLabel = t(mode === 'used' ? 'Used' : 'Left')
   const groups = new Map<Provider, UsageRow[]>()
   for (const row of rows) {
     const group = groups.get(row.provider) || []
@@ -94,7 +95,7 @@ export default function Panel() {
     <Row align="center" justify="between" gap="sm" wrap>
       <Heading level={2}>{t('Agent Usage')}</Heading>
       <Row align="center" gap="xs">
-        <Button size="sm" variant="outline" tooltip={t(mode === 'used' ? 'Show remaining quota' : 'Show used quota')}
+        <Button size="sm" variant="outline" tooltip={t(mode === 'used' ? 'Show remaining usage' : 'Show used usage')}
           onPress={() => set(quotaDisplay, read(quotaDisplay) === 'used' ? 'remaining' : 'used')}>
           {`${modeLabel} ⇅`}
         </Button>
@@ -131,16 +132,20 @@ export default function Panel() {
               {row.status !== 'available' && <Text size="xs" muted>{t(statusText[row.status])}</Text>}
               {row.windows.map((window, index) => {
                 const name = nameOfWindow(window, t)
-                const value = mode === 'used' ? window.used : 100 - window.used
+                const used = displayPercent(window.used, 'used')
+                const value = mode === 'used' ? used : displayPercent(window.used, 'remaining')
                 const amount = percentage.format(value / 100)
-                const tone = window.used >= 90 ? 'danger' : window.used >= 70 ? 'warning' : 'neutral'
+                const tone = used >= 90 ? 'danger' : used >= 80 ? 'warning' : 'neutral'
+                const valueLabel = locale.toLowerCase().startsWith('zh')
+                  ? `${t(mode === 'used' ? 'used' : 'left')} ${amount}`
+                  : `${amount} ${t(mode === 'used' ? 'used' : 'left')}`
                 const longLabel = window.kind === 'bucket' || window.kind === 'fableWeekly'
                 return <Stack key={`${name}:${index}`} gap="none">
                   {longLabel && <Text size="xs" muted>{name}</Text>}
                   <Row align="center" gap="xs">
                     {!longLabel && <Box width={34} shrink={false}><Text size="xs" muted truncate>{shortWindow(window, name)}</Text></Box>}
                     <Box grow minWidth={20}>
-                      <Progress label={`${name} · ${modeLabel} ${amount}`} labelHidden value={value} />
+                      <Progress label={`${name} · ${valueLabel}`} labelHidden value={value} />
                     </Box>
                     <Box width={44} shrink={false} align="end"><Text size="xs" weight="semibold" tone={tone}>{amount}</Text></Box>
                     <Box width={63} shrink={false} align="end">

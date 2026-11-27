@@ -19,10 +19,12 @@ const messages: Record<string, [string, string]> = {
   'Orca did not return usage data.': ['Orca 未回傳用量資料。', 'Orca 未返回用量数据。'],
   'Loading account usage': ['正在讀取帳號用量', '正在读取账号用量'],
   'Last checked': ['上次查詢', '上次查询'],
-  'Show remaining quota': ['切換成剩餘額度', '切换成剩余额度'],
-  'Show used quota': ['切換成已使用', '切换成已使用'],
-  'Remaining': ['剩餘額度', '剩余额度'],
-  'Used': ['已使用', '已使用'],
+  'Show remaining usage': ['顯示剩餘用量', '显示剩余用量'],
+  'Show used usage': ['顯示已用用量', '显示已用用量'],
+  'Left': ['剩餘', '剩余'],
+  'Used': ['已用', '已用'],
+  'left': ['剩餘', '剩余'],
+  'used': ['已用', '已用'],
 }
 
 export function translate(key: string, locale: string) {

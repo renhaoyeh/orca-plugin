@@ -3,12 +3,12 @@
 Open **Agent Usage** in Orca's right sidebar. Accounts with reported usage
 appear in compact cards grouped by provider.
 
-The meters default to remaining allowance. The header button switches
-between remaining and used percentages and remembers the selection. At low
-allowance, the percentage changes tone. The refresh button reads Orca's
+The meters default to used percentage. The header button switches between
+Used and Left percentages and remembers the selection. Health tone reflects
+used percentage in either mode. The refresh button reads Orca's
 latest snapshot.
 
-Requires Orca 1.4.264 or later. The trusted worker runs
+Requires Orca 1.4.274 or later. The trusted worker runs
 `orca account list --json` on the host that runs the plugin. It reads
 Orca's current and inactive account meters and returns display data to the
 panel. Orca manages provider refreshes.

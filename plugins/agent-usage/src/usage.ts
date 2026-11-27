@@ -13,8 +13,13 @@ function windowOf(kind: UsageWindow['kind'], value: RecordValue, label = ''): Us
   if (typeof value.usedPercent !== 'number' || !Number.isFinite(value.usedPercent)) return []
   return [{
     kind, label, minutes: number(value.windowMinutes), resetsAt: timestamp(value.resetsAt),
-    used: Math.round(Math.min(100, Math.max(0, value.usedPercent)) * 10) / 10,
+    used: Math.min(100, Math.max(0, value.usedPercent)),
   }]
+}
+
+export function displayPercent(usedPercent: number, mode: 'used' | 'remaining') {
+  const used = Math.round(Math.min(100, Math.max(0, usedPercent)))
+  return mode === 'used' ? used : 100 - used
 }
 
 function usage(limits: RecordValue, loading: boolean, needsSignIn: boolean, observedAt?: unknown) {
