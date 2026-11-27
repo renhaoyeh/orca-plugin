@@ -64,6 +64,25 @@ test('restores the binding and remembers the list while navigating an open task'
   model.dispose()
 })
 
+test('current-task selection follows navigation, Back, list clear, and workspace identity', async () => {
+  const model = createModel({ 'connection.read': () => bound })
+  model.onWorkspace('workspace-a')
+  await model.reload()
+  await model.openTask(detail.id)
+  await model.openTask('44')
+  model.back()
+  model.back(true)
+  const selections = model.recorded.filter(({ name }) => name === 'tasks.selection.save').map(({ input }) => input)
+  assert.deepEqual(selections, [
+    { workspaceId: 'workspace-a', scope: connected.scope, project: project.id, id: null },
+    { workspaceId: 'workspace-a', scope: connected.scope, project: project.id, id: detail.id },
+    { workspaceId: 'workspace-a', scope: connected.scope, project: project.id, id: '44' },
+    { workspaceId: 'workspace-a', scope: connected.scope, project: project.id, id: detail.id },
+    { workspaceId: 'workspace-a', scope: connected.scope, project: project.id, id: null },
+  ])
+  model.dispose()
+})
+
 test('requests project matches from Asana and avoids rebinding the current project', async () => {
   const model = createModel({
     'connection.read': () => bound,

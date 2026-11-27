@@ -18,6 +18,11 @@ export function createPanelState(request: PluginBridgeApi['request'], changed: (
   let pendingSearch = false
   let pendingSave = false
   let workspaceChanged = false
+  let workspaceId: string | null = null
+  function persistSelection(id: string | null) {
+    const scope = state.config?.scope, project = state.project?.id
+    if (workspaceId && scope && project) void request('tasks.selection.save', { workspaceId, scope, project, id }).catch(() => {})
+  }
 
   function patch(values: Partial<typeof state>) {
     Object.assign(state, values)
@@ -82,6 +87,7 @@ export function createPanelState(request: PluginBridgeApi['request'], changed: (
 
   function chooseProject() {
     return run(async current => {
+      persistSelection(null)
       patch({ picker: true, projectQuery: '', projects: [] })
       await loadProjects(current)
     })
@@ -120,6 +126,7 @@ export function createPanelState(request: PluginBridgeApi['request'], changed: (
   function openTask(id: string) {
     if (id === state.detailId) return
     return run(async current => {
+      persistSelection(id)
       const { detail, children, history } = state
       patch({
         detailId: id, detail: null, children: [],
@@ -133,6 +140,7 @@ export function createPanelState(request: PluginBridgeApi['request'], changed: (
     const previous = toList ? undefined : state.history.at(-1)
     // Stop applying results from the task that just left the screen.
     generation++
+    persistSelection(toList ? null : state.history.at(-1)?.detail.id ?? null)
     patch({
       picker: false, busy: false, problem: '', history: toList ? [] : state.history.slice(0, -1),
       detailId: previous?.detail.id ?? '', detail: previous?.detail ?? null, children: previous?.children ?? [],
@@ -154,6 +162,7 @@ export function createPanelState(request: PluginBridgeApi['request'], changed: (
         config: saved, token: '', status: 'Saved', settings, project: saved.binding ?? null,
         picker: !saved.binding, issues: [], next: null, detailId: '', detail: null, children: [], history: [],
       })
+      persistSelection(null)
       if (!settings) await loadCurrent(current)
     })
   }
@@ -187,6 +196,9 @@ export function createPanelState(request: PluginBridgeApi['request'], changed: (
         tab: saved.tab ?? 'mine', picker: !saved.binding, projects: [], projectQuery: '',
         detailId: '', detail: null, issues: [], next: null, query: '', children: [], history: [], collapsedSections: new Set(),
       })
+      // The panel restores its project and task list, not an old detail view. Clear
+      // the MCP selection on each fresh sidebar load so it always matches the UI.
+      persistSelection(null)
       if (saved.configured) await loadCurrent(current)
     })
   }
@@ -195,6 +207,7 @@ export function createPanelState(request: PluginBridgeApi['request'], changed: (
     if (workspace === id) return
     if (workspace !== undefined) workspaceChanged = true
     workspace = id
+    workspaceId = id
     if (workspaceChanged && !state.settings) void reload()
   }
 
@@ -210,6 +223,7 @@ export function createPanelState(request: PluginBridgeApi['request'], changed: (
 
   function disconnect() {
     return run(async current => {
+      persistSelection(null)
       clearTimeout(saveTimer)
       const saved = await request('connection.remove')
       if (!current()) return

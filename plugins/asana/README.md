@@ -81,6 +81,18 @@ headers or tokens. No terminal/agent permissions and no herdr-zed credential mig
 Preview text is bounded to 16,000 notes characters and 30 comments of 1,500 characters;
 shortening is marked. Images and attachments are not downloaded.
 
+## MCP tool
+
+The plugin contributes one read-only MCP tool, `get_current_task`. It reads the task
+selected in the Asana sidebar for the caller's exact Orca workspace each time it is
+called. Back, list, project changes, and workspace switches update or clear that
+selection. The response includes a bounded title, notes, Asana URL, and up to five
+recent comments. It uses the existing encrypted `connection.v1` and Asana client.
+No separate login or MCP token is used. Agents must run on the same host as Orca;
+when multiple workspaces share a folder, launch-provided workspace identity is used
+to disambiguate. Requires Orca 1.4.276+ and Node.js 22+; install MCP dependencies
+with `npm ci --prefix plugins/asana/mcp` before loading the plugin.
+
 ## Development
 
 ```powershell
