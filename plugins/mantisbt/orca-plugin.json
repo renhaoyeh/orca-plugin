@@ -4,11 +4,19 @@
   "name": "MantisBT",
   "icon": "assets/mantisbt.png",
   "version": "0.1.0",
-  "description": "Connect an API token, browse MantisBT issues and explicitly hand them to a new Agent.",
-  "engines": { "orca": ">=1.4.259" },
+  "description": "Browse MantisBT issues and let an Orca Agent read the issue selected in the sidebar.",
+  "engines": { "orca": ">=1.4.276" },
   "execution": "trusted-worker",
   "pluginApi": 1,
   "main": "src/worker.ts",
-  "contributes": { "panels": [{ "id": "issues", "title": "MantisBT", "icon": "bug", "entry": "src/panel.html", "ui": "html" }] },
+  "contributes": {
+    "panels": [{ "id": "issues", "title": "MantisBT", "icon": "bug", "entry": "src/panel.html", "ui": "html" }],
+    "hooks": [{ "event": "agent.launch.before" }],
+    "mcpServers": [{
+      "name": "mantisbt",
+      "command": "node",
+      "args": ["-e", "const {readFileSync}=require('node:fs'); const {homedir}=require('node:os'); const {join}=require('node:path'); const {connect}=require('node:net'); const {port,key}=JSON.parse(readFileSync(join(homedir(),'.orca-mantisbt-mcp','bridge.json'),'utf8')); const socket=connect(port,'127.0.0.1'); socket.once('connect',()=>{socket.write(JSON.stringify({key,cwd:process.cwd(),workspaceId:process.env.MANTISBT_ORCA_WORKSPACE_ID})+'\\n');process.stdin.pipe(socket)}); socket.pipe(process.stdout); socket.on('close',()=>process.stdin.destroy()); socket.on('error',()=>{console.error('MantisBT MCP bridge is unavailable. Reload the MantisBT plugin in Orca.');process.exitCode=1});"]
+    }]
+  },
   "capabilities": [{ "kind": "secrets:own" }, { "kind": "storage:own" }, { "kind": "workspace:read" }, { "kind": "agent:launch" }]
 }

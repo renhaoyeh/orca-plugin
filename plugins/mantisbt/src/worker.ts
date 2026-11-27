@@ -6,12 +6,22 @@ import { installedAgents, launchAgent, runOrcaCli } from './agent-launch.mjs'
 import { requestCache } from './request-cache'
 import { mantisClient } from './mantis-client.mjs'
 import { connection, normalizeServer } from './api.mjs'
-async function workspaceScope(orca: OrcaWorkerApi) {
-  const context = await orca.host.call('workspace.readContext', {})
-  if (!context?.workspaceId) return 'source:mantisbt'
+type McpCaller = { cwd: string; workspaceId?: string }
+function normalizedPath(value: string) {
+  const path = value.replace(/\\/g, '/').replace(/\/+$/, '') || '/'
+  return process.platform === 'win32' ? path.toLowerCase() : path
+}
+async function workspaceScope(orca: OrcaWorkerApi, caller?: McpCaller) {
+  const context = caller ? null : await orca.host.call('workspace.readContext', {})
+  if (!caller && !context?.workspaceId) return 'source:mantisbt'
   const list = await orca.host.call('workspace.list', {})
   if (list.truncated) throw Error('Workspace list is incomplete. Cannot safely bind a MantisBT project.')
-  const row = list.workspaces.find(row => row.id === context.workspaceId)
+  const localMatches = caller ? list.workspaces.filter(row =>
+    (!row.hostId || row.hostId === 'local') && normalizedPath(row.path) === normalizedPath(caller.cwd)) : []
+  const row = caller
+    ? localMatches.find(row => row.id === caller.workspaceId) ?? (localMatches.length === 1 ? localMatches[0] : undefined)
+    : list.workspaces.find(row => row.id === context?.workspaceId)
+  if (caller && !row) throw Error('Open this Agent in an Orca workspace on the same host to read the selected MantisBT issue.')
   if (!row) throw Error('Workspace changed. Reopen MantisBT.')
   const projects = await orca.host.call('project.list', {})
   if (projects.truncated) throw Error('Project list is incomplete. Cannot safely bind a MantisBT project.')
@@ -24,7 +34,7 @@ type MantisClient = {
   projectInfo(id: string): Promise<Project>
   projectFields(id: string): Promise<FieldOption[]>
   issues(project: string, cursor: string | null, tab: 'mine' | 'all'): Promise<Page<Issue>>
-  detail(id: string): Promise<IssueDetail>
+  detail(id: string, options?: { includeResolved?: boolean }): Promise<IssueDetail>
   subtasks(id: string): Promise<Issue[]>
 }
 
@@ -32,6 +42,7 @@ export function createWorker(
   makeClient: (kind: 'mantisbt', config: ReturnType<typeof connection>) => MantisClient = mantisClient,
   readScope = workspaceScope,
   runCli: (args: string[]) => Promise<any> = runOrcaCli,
+  startBridge?: (api: () => Promise<MantisClient>, currentIssue: (caller: McpCaller) => Promise<IssueDetail | null>) => Promise<() => Promise<void>>,
 ) {
   return async function activate(orca: OrcaWorkerApi) {
     async function agentWorkspace(expectedWorkspaceId?: string) {
@@ -73,14 +84,14 @@ export function createWorker(
       if (!/^\d+$/.test(input.project)) throw Error('Invalid MantisBT ID.')
       return config
     }
-    async function state(): Promise<ConnectionState> {
-      const config = await saved(), key = JSON.stringify([await readScope(orca), config?.url || ''])
+    async function state(caller?: McpCaller): Promise<ConnectionState> {
+      const config = await saved(), key = JSON.stringify([await readScope(orca, caller), config?.url || ''])
       const { value } = await orca.host.call('storage.get', { key: 'bindings.v1' })
       const bindings = value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, Project> : {}
       const tab = (await orca.host.call('storage.get', { key: 'tab' })).value === 'all' ? 'all' : 'mine'
       return { configured: !!config, url: config?.url ?? '', scope: key, binding: bindings[key] || null, tab }
     }
-    orca.panels.handle('connection.read', state)
+    orca.panels.handle('connection.read', () => state())
     orca.panels.handle('data.refresh', () => { clearRequests(); return { ok: true as const } })
     orca.panels.handle('connection.save', async input => {
       if (saving) throw Error('Settings are being saved. Please wait.')
@@ -134,12 +145,13 @@ export function createWorker(
       await orca.host.call('storage.set', { key: storageKey('fields', config.url, input.project), value: layout })
       return layout
     })
-    orca.panels.handle('issues.selection.read', async input => {
+    async function readSelection(input: { scope: string; project: string }) {
       const key = storageKey('issue-selection', input.scope, input.project)
       await selectionWrites.get(key)?.catch(() => {})
       const { value } = await orca.host.call('storage.get', { key })
       return { id: typeof value === 'string' && /^\d+$/.test(value) ? value : null }
-    })
+    }
+    orca.panels.handle('issues.selection.read', readSelection)
     orca.panels.handle('issues.selection.save', async input => {
       if (input.id !== null && (typeof input.id !== 'string' || !/^\d+$/.test(input.id))) throw Error('Invalid MantisBT ID.')
       // Use the originating panel's scope even if the workspace has just changed.
@@ -168,6 +180,39 @@ export function createWorker(
       if (typeof input?.workspaceId !== 'string' || typeof input.agent !== 'string' || typeof input.prompt !== 'string' || !input.prompt.trim()) throw Error('Choose an Agent and review its issue prompt.')
       return launchAgent(runCli, await agentWorkspace(input.workspaceId), input.agent, input.prompt)
     })
+    if (startBridge) {
+      // Orca keeps workers with a launch hook resident. Supply the workspace ID to disambiguate
+      // terminal sessions whose workspaces share a directory; native chats can use their cwd.
+      orca.hooks.on('agent.launch.before', (event, next) => event.workspaceId
+        ? next({ ...event, env: { ...event.env, MANTISBT_ORCA_WORKSPACE_ID: event.workspaceId } })
+        : next(event))
+      return startBridge(api, async caller => {
+        const { scope, binding } = await state(caller)
+        if (!scope || !binding) return null
+        const { id } = await readSelection({ scope, project: binding.id })
+        if (!id) return null
+        const config = await saved()
+        if (!config || JSON.parse(scope)[1] !== config.url) throw Error('The MantisBT connection changed. Retry the request.')
+        return makeClient('mantisbt', config).detail(id, { includeResolved: true })
+      })
+    }
   }
 }
-export default createWorker()
+
+let closeBridge: (() => Promise<void>) | undefined
+export default async function activate(orca: OrcaWorkerApi) {
+  closeBridge = await createWorker(undefined, undefined, undefined, async (api, currentIssue) => {
+    try {
+      const { startMcpBridge } = await import('../mcp/bridge.mjs')
+      return await startMcpBridge(api, currentIssue)
+    } catch (cause) {
+      const reason = cause && typeof cause === 'object' && 'code' in cause ? String(cause.code) : 'bridge startup failed'
+      orca.log(`MantisBT MCP could not start (${reason}). Check the MCP dependencies and reload the plugin.`)
+      return async () => {}
+    }
+  })(orca)
+}
+
+export async function deactivate() {
+  await closeBridge?.()
+}

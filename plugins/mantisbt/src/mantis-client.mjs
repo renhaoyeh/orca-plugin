@@ -23,6 +23,14 @@ function issue(item) {
     parent: parent && typeof parent === 'object' ? { id: parent.gid, title: parent.name } : null }
 }
 export function mantisClient(_kind, config, request = fetch) {
+  function validateCursor(cursor) {
+    if (cursor !== null && (!/^\d+$/.test(String(cursor)) || !Number.isSafeInteger(Number(cursor)) || Number(cursor) < 1)) throw Error('Invalid issues cursor.')
+  }
+  async function issuesPage(gid, cursor = null, options) {
+    validateCursor(cursor)
+    const page = await source.projectTasksPage(config, id(gid), cursor, request, options)
+    return { items: page.tasks.map(issue), next: page.next ? String(page.next) : null }
+  }
   async function projectRecord(gid) {
     const body = await api.getProject(config, gid, request)
     const item = body.projects?.find(item => String(item.id) === gid) || body.project
@@ -62,16 +70,18 @@ export function mantisClient(_kind, config, request = fetch) {
     },
     /** @param {string | null} cursor */
     async issues(gid, cursor = null, tab = 'mine') {
+      if (tab !== 'mine') return issuesPage(gid, cursor)
+      validateCursor(cursor)
       gid = id(gid)
-      if (cursor !== null && (!/^\d+$/.test(String(cursor)) || !Number.isSafeInteger(Number(cursor)) || Number(cursor) < 1)) throw Error('Invalid issues cursor.')
-      if (tab === 'mine') return { items: (await source.myProjectTasks(config, gid, gid, request)).map(issue), next: null }
-      const page = await source.projectTasksPage(config, gid, cursor, request)
-      return { items: page.tasks.map(issue), next: page.next ? String(page.next) : null }
+      return { items: (await source.myProjectTasks(config, gid, gid, request)).map(issue), next: null }
     },
+    issuesPage,
     async subtasks(gid) { return (await source.openSubtasks(config, id(gid), request)).map(issue) },
-    async detail(gid) {
+    async detail(gid, { includeResolved = false } = {}) {
       const item = await source.taskDetails(config, id(gid), null, request)
-      if (!item || item.completed) throw Error('This issue was resolved or deleted in MantisBT.')
+      if (!item || (!includeResolved && item.completed)) {
+        throw Error(includeResolved ? 'MantisBT issue not found.' : 'This issue was resolved or deleted in MantisBT.')
+      }
       const comments = item.comments || []
       const attachments = attachmentList(item.attachments)
       return { ...issue(item), description: item.notes.slice(0, 16000), reproductionSteps: item.reproductionSteps, commentsError: '',

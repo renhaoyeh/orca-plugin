@@ -117,7 +117,7 @@ const normalize = (issue, connection, threshold) => {
 };
 const listTask = task => ({ ...task, parent: task.parent?.name || null });
 
-async function issuesPage(connection, project, page, filter, request) {
+async function issuesPage(connection, project, page, filter, request, includeResolved = false) {
   const [body, threshold] = await Promise.all([
     mantisApi.listIssues(connection, { project_id: project, page_size: pageSize, page, filter_id: filter || null }, request),
     resolvedThreshold(connection, project, request),
@@ -125,12 +125,12 @@ async function issuesPage(connection, project, page, filter, request) {
   if (!Array.isArray(body.issues)) throw new Error('The server did not return MantisBT issues.');
   const tasks = await Promise.all(body.issues.filter(issue => String(issue.project?.id) === String(project)).map(async issue =>
     ({ ...normalize(issue, connection, threshold), customFields: await typedCustomFields(issue, connection, request) })));
-  return { tasks: tasks.filter(task => !task.completed).map(listTask),
+  return { tasks: (includeResolved ? tasks : tasks.filter(task => !task.completed)).map(listTask),
   next: body.issues.length === pageSize ? page + 1 : null };
 }
 
-export async function projectTasksPage(connection, project, offset = null, request = fetch) {
-  return issuesPage(connection, project, Number(offset) || 1, '', request);
+export async function projectTasksPage(connection, project, offset = null, request = fetch, { assignedOnly = false, includeResolved = false } = {}) {
+  return issuesPage(connection, project, Number(offset) || 1, assignedOnly ? 'assigned' : '', request, includeResolved);
 }
 
 export async function myProjectTasks(connection, project, _workspace, request = fetch) {
@@ -143,9 +143,11 @@ export async function myProjectTasks(connection, project, _workspace, request = 
 }
 
 async function readIssue(connection, gid, request) {
+  gid = String(gid).replace(/^0+(?=\d)/, '');
   const body = await mantisApi.getIssue(connection, gid, request);
-  if (!body.issues?.[0]) throw new Error('The server did not return this MantisBT issue.');
-  return body.issues[0];
+  const issue = body.issues?.find(item => String(item.id) === String(gid));
+  if (!issue) throw new Error('The server did not return this MantisBT issue.');
+  return issue;
 }
 
 const comments = issue => (issue.notes || []).filter(note => note.text?.trim() || note.attachments?.length).map(note => ({

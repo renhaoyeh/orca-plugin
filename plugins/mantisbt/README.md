@@ -2,7 +2,7 @@
 
 Read-only MantisBT browser in Orca's right sidebar. Its light palette, blue
 widget headers, issue table, and activities use herdr-zed's MantisBT styling
-adapted for the sidebar width. Requires Orca 1.4.259+.
+adapted for the sidebar width. Requires Orca 1.4.276+.
 
 ## Flow
 
@@ -66,8 +66,8 @@ No remote writes, agents, dispatch or terminal operations.
 
 ## Source and access
 
-`src/mantis-source.mjs` and `src/mantis-api.mjs` copy herdr-zed's `source-api.js` and
-`api.js`, changing only relative imports. They own source projections, field definitions,
+`src/mantis-source.mjs` and `src/mantis-api.mjs` are based on herdr-zed's `source-api.js` and
+`api.js`. They own source projections, field definitions,
 server-resolved threshold, filters, paging and relationships. `mantis-rest.mjs` adapts
 those calls to the bounded GET-only transport in `api.mjs`; `mantis-client.mjs` projects
 records for Orca. Do not replace these files with Asana's domain logic.
@@ -89,12 +89,47 @@ have a 4 MiB limit. HTTP is permitted for legacy servers but visibly warns that 
 unencrypted.
 Review these grants before approval.
 
+## Use MantisBT from an Orca Agent
+
+The plugin contributes **mantisbt** to Orca's MCP server list. It reads the
+sidebar's selected issue and existing encrypted connection through the plugin's
+worker. The worker passes only tool results back to the Agent.
+
+- `get_current_issue` uses the sidebar's selection for the Agent's Orca project.
+  It reads the selection on every call. Switching issues updates the result, and
+  returning to the issue list clears it.
+- `list_projects` searches projects and subprojects by name.
+- `list_issues` takes a project ID and returns one page. It can filter to issues
+  assigned to the API token's account and can include resolved issues. Continue with
+  `next_page` when present, even if the page contains no issues.
+- `get_issue` reads an issue by ID, including a resolved issue, with its description,
+  reproduction steps, recent comments and attachment names.
+
+For a development folder, install the dependencies on the Orca host with Node.js
+22+ from the repository root:
+
+```powershell
+npm ci --prefix plugins/mantisbt/mcp
+```
+
+With MCP servers enabled on the host, reload and approve the development plugin.
+Orca lists `mantisbt` under **Settings → MCP servers → From plugins**. Leave it
+enabled for the desired Agent and workspace, and run it per Agent so that its
+working directory identifies the workspace. On Windows the Agent must run on the
+same Windows host as the sidebar. The bridge listens on loopback and requires a
+random local key. The launch hook only supplies the workspace ID for terminal Agents.
+
+Start a new Codex or Claude chat in that workspace, check `/mcp`, then ask
+“What MantisBT issue is open in this workspace?” The Agent calls the tool on
+request, so switching issues does not send a new chat message.
+
 ## Validation
 
 ```powershell
 orca plugin test ./plugins/mantisbt --json
 orca plugin check ./plugins/mantisbt --json
 orca plugin dev reload ./plugins/mantisbt --json
+npm test --prefix plugins/mantisbt/mcp
 ```
 
 Tests use mock HTTP, host context, encrypted storage and sidebar state transitions.

@@ -5,6 +5,43 @@ import { pmPriorityOptions, priorityColor, priorityLabel } from './fields'
 const fake = { subtasks: async () => [], validate: async () => { throw Error('Saving must not contact the offline server') }, projects: async () => ({ items: [], next: null }), issues: async () => ({ items: [], next: null }), detail: async () => detail, projectInfo: async (id: string) => ({ id, name: 'MantisBT project', workspaceId: id }), projectFields: async () => detail.customFields }
 const input = { url: 'https://mantis.example.test', token: 'test-only-token' }
 const capabilities = ['secrets:own', 'storage:own', 'workspace:read']
+test('MCP current issue shares the sidebar selection and credentials for the calling workspace', async () => {
+  const workspaces = [
+    { id: 'ws-1', path: 'C:/first', hostId: 'local', kind: 'worktree' as const, name: 'First', branch: 'main' },
+    { id: 'ws-2', path: 'C:/second', hostId: 'local', kind: 'worktree' as const, name: 'Second', branch: 'main' },
+  ]
+  const host = mockHost({ capabilities: [...capabilities, 'agent:launch'], secrets: { 'connection.v1': JSON.stringify(input) }, results: {
+    'workspace.readContext': { workspaceId: 'ws-1', branch: 'main', displayName: 'First', terminals: [] },
+    'workspace.list': { workspaces, truncated: false },
+    'project.list': { projects: [], truncated: false },
+  } })
+  let current: (caller: { cwd: string }) => Promise<unknown> = async () => { throw Error('Bridge not started') }
+  const worker = await mountWorker({ default: async orca => {
+    await createWorker((_kind, config) => ({
+      ...fake, detail: async id => {
+        assert.equal(config.token, input.token)
+        return { ...detail, id }
+      },
+    }), undefined, undefined, async (_api, currentIssue) => {
+      current = currentIssue
+      return async () => {}
+    })(orca)
+  } }, { host })
+  const { scope } = await worker.request('connection.read')
+  await worker.request('project.bind', { id: '12', scope: scope! })
+  const caller = { cwd: 'C:/first' }
+  const selection = { scope: scope!, project: '12' }
+  assert.equal(await current(caller), null)
+  await worker.request('issues.selection.save', { ...selection, id: '42' })
+  assert.deepEqual(await current(caller), detail)
+  assert.equal(await current({ cwd: 'C:/second' }), null)
+  await assert.rejects(current({ cwd: 'C:/outside' }), /Open this Agent/)
+  await worker.request('issues.selection.save', { ...selection, id: '43' })
+  assert.deepEqual(await current(caller), { ...detail, id: '43' })
+  await worker.request('issues.selection.save', { ...selection, id: null })
+  assert.equal(await current(caller), null)
+  await worker.deactivate()
+})
 test('issue selection is scoped to workspace, server and project and latest navigation wins', async () => {
   const host = mockHost({ capabilities, secrets: { 'connection.v1': JSON.stringify(input) } })
   const worker = await mountWorker({ default: createWorker(() => fake, async () => 'repo-a') }, { host })
