@@ -11,7 +11,7 @@ test('stdio MCP exposes one read-only live current-task tool', { timeout: 15000 
   const home = await mkdtemp(join(tmpdir(), 'asana-bridge-test-'))
   t.after(() => rm(home, { recursive: true, force: true }))
   const directory = join(home, '.orca-asana-mcp')
-  const task = { id: '42', title: 'Fixture task', description: 'Notes', url: 'https://app.asana.com/0/1/42', comments: [{ author: 'Tester', at: 'now', text: 'C'.repeat(1001) }], commentsError: 'Some comments failed.', truncated: false }
+  const task = { id: '42', title: 'Fixture task', description: 'Notes', url: 'https://app.asana.com/0/1/42', comments: Array.from({ length: 35 }, (_, index) => ({ id: String(index + 1), author: 'Tester', at: new Date(Date.UTC(2026, 0, index + 1)).toISOString(), text: index === 34 ? 'C'.repeat(1001) : `Comment ${index + 1}` })), commentsError: 'Some comments failed.', truncated: true }
   let selected = task
   const close = await startMcpBridge(async caller => {
     assert.equal(caller.workspaceId, 'workspace-test')
@@ -30,7 +30,8 @@ test('stdio MCP exposes one read-only live current-task tool', { timeout: 15000 
   const read = async () => JSON.parse((await client.callTool({ name: 'get_current_task', arguments: {} })).content[0].text)
   const result = await read()
   assert.equal(result.task.id, task.id)
-  assert.equal(result.task.comments[0].text.length, 1000)
+  assert.deepEqual(result.task.comments.map(comment => comment.at), ['2026-01-31T00:00:00.000Z', '2026-02-01T00:00:00.000Z', '2026-02-02T00:00:00.000Z', '2026-02-03T00:00:00.000Z', '2026-02-04T00:00:00.000Z'])
+  assert.equal(result.task.comments.at(-1).text.length, 1000)
   assert.equal(result.task.commentsError, task.commentsError)
   assert.equal(result.task.truncated, true)
   selected = { ...task, id: '43', title: 'After navigation' }

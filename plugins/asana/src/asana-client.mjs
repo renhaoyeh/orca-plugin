@@ -81,15 +81,16 @@ export function asanaClient(_kind, config, request = fetch) {
     },
     async subtasks(gid) { return (await source.openSubtasks(token, id(gid), request)).map(task) },
     /** @param {string | null} projectId */
-    async detail(gid, projectId = null) {
+    async detail(gid, projectId = null, options = {}) {
       const item = await source.taskDetails(token, id(gid), projectId ? id(projectId) : null, request)
       if (!item || item.completed) throw Error('This task was completed or deleted in Asana.')
       let comments = [], commentsError = ''
-      const imagesRequest = taskImages(token, gid, request).catch(() => [])
+      const imagesRequest = options.includeImages === false ? Promise.resolve([]) : taskImages(token, gid, request).catch(() => [])
       try { comments = await source.taskComments(token, gid, request) } catch { commentsError = 'Comments could not be loaded. Refresh to retry.' }
+      const displayedComments = options.includeAllComments ? comments.slice(-30) : comments.slice(0, 30)
       return { ...task(item), images: await imagesRequest, description: item.notes.slice(0, 16000),
         descriptionHtml: item.htmlNotes.length <= 64_000 && item.notes.length <= 16_000 ? item.htmlNotes : '',
-        comments: comments.slice(0, 30).map(item => ({ id: item.gid, author: item.author, text: item.text.slice(0, 1500), at: item.at })), commentsError,
+        comments: displayedComments.map(item => ({ id: item.gid, author: item.author, text: item.text.slice(0, 1500), at: item.at })), commentsError,
         truncated: item.notes.length > 16000 || comments.length > 30 || comments.some(item => item.text.length > 1500) }
     },
   }

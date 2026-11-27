@@ -5,7 +5,10 @@ import { asanaClient } from './asana-client.mjs'
 import { connection } from './api.mjs'
 import { installedAgents, launchAgent, runOrcaCli } from './agent-launch.mjs'
 function scopePath(value: string) {
-  const path = value.replace(/\\/g, '/').replace(/\/+$/, '') || '/'
+  return value.replace(/\\/g, '/').replace(/\/+$/, '') || '/'
+}
+function cwdPath(value: string) {
+  const path = scopePath(value)
   const platform = (globalThis as typeof globalThis & { process?: { platform?: string } }).process?.platform
   return platform === 'win32' ? path.toLowerCase() : path
 }
@@ -29,11 +32,10 @@ type AsanaClient = {
   projects(cursor: null, query: string): Promise<Page<Project>>
   projectInfo(id: string): Promise<Project>
   issues(project: string, cursor: string | null, scope: 'mine' | 'all'): Promise<Page<Issue>>
-  detail(id: string, project?: string): Promise<IssueDetail>
+  detail(id: string, project?: string, options?: { includeAllComments?: boolean; includeImages?: boolean }): Promise<IssueDetail>
   subtasks(id: string): Promise<Issue[]>
   image(id: string): Promise<string>
 }
-type AsanaTaskDetail = IssueDetail & { projects?: string[] }
 export type McpCaller = { cwd: string; workspaceId?: string }
 async function mcpSelectionKey(workspaceId: string, scope: string, project: string) {
   const bytes = await globalThis.crypto.subtle.digest('SHA-256', new TextEncoder().encode(JSON.stringify([workspaceId, scope, project])))
@@ -41,13 +43,14 @@ async function mcpSelectionKey(workspaceId: string, scope: string, project: stri
   const hash = btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
   return `current-task.v1.${hash}`
 }
+function selectionQueueKey(workspaceId: string, scope: string, project: string) { return `${workspaceId}\0${scope}\0${project}` }
 function validId(value: unknown): value is string { return typeof value === 'string' && /^[1-9]\d{0,15}$/.test(value) }
 
 export function createWorker(
   makeClient: (kind: 'asana', config: ReturnType<typeof connection>) => AsanaClient = asanaClient,
   readScope = workspaceScope,
   runCli: (args: string[]) => Promise<any> = runOrcaCli,
-  startBridge?: (currentTask: (caller: McpCaller) => Promise<AsanaTaskDetail | null>) => Promise<() => Promise<void>>,
+  startBridge?: (currentTask: (caller: McpCaller) => Promise<IssueDetail | null>) => Promise<() => Promise<void>>,
 ) {
   return async function activate(orca: OrcaWorkerApi) {
     async function agentWorkspace(expectedWorkspaceId?: string) {
@@ -141,18 +144,21 @@ export function createWorker(
       async () => (await api()).detail(input.id, input.project), detail => !detail.commentsError && !detail.images?.length))
     orca.panels.handle('tasks.selection.save', async input => {
       if (typeof input?.workspaceId !== 'string' || typeof input.scope !== 'string' || !validId(input.project) || (input.id !== null && !validId(input.id))) throw Error('Invalid Asana task selection.')
-      const context = await orca.host.call('workspace.readContext', {})
-      if (context?.workspaceId !== input.workspaceId) throw Error('Workspace changed. Ignore this stale task selection.')
-      const active = await workspaceSnapshot(orca, input.workspaceId)
-      if (active.scope !== input.scope) throw Error('Workspace changed. Ignore this stale task selection.')
-      const { value: bindingsValue } = await orca.host.call('storage.get', { key: 'bindings.v1' })
-      const bindings = bindingsValue && typeof bindingsValue === 'object' && !Array.isArray(bindingsValue) ? bindingsValue as Record<string, Project> : {}
-      if (bindings[input.scope]?.id !== input.project) throw Error('Project binding changed. Ignore this stale task selection.')
-      const key = await mcpSelectionKey(input.workspaceId, input.scope, input.project)
-      const previous = selectionWrites.get(key) ?? Promise.resolve()
-      const write = previous.catch(() => {}).then(() => orca.host.call('storage.set', { key, value: input.id }))
-      selectionWrites.set(key, write)
-      try { await write } finally { if (selectionWrites.get(key) === write) selectionWrites.delete(key) }
+      const queueKey = selectionQueueKey(input.workspaceId, input.scope, input.project)
+      const previous = selectionWrites.get(queueKey) ?? Promise.resolve()
+      const write = previous.catch(() => {}).then(async () => {
+        const context = await orca.host.call('workspace.readContext', {})
+        if (context?.workspaceId !== input.workspaceId) throw Error('Workspace changed. Ignore this stale task selection.')
+        const active = await workspaceSnapshot(orca, input.workspaceId)
+        if (active.scope !== input.scope) throw Error('Workspace changed. Ignore this stale task selection.')
+        const { value: bindingsValue } = await orca.host.call('storage.get', { key: 'bindings.v1' })
+        const bindings = bindingsValue && typeof bindingsValue === 'object' && !Array.isArray(bindingsValue) ? bindingsValue as Record<string, Project> : {}
+        if (bindings[input.scope]?.id !== input.project) throw Error('Project binding changed. Ignore this stale task selection.')
+        const key = await mcpSelectionKey(input.workspaceId, input.scope, input.project)
+        await orca.host.call('storage.set', { key, value: input.id })
+      })
+      selectionWrites.set(queueKey, write)
+      try { await write } finally { if (selectionWrites.get(queueKey) === write) selectionWrites.delete(queueKey) }
       return { ok: true as const }
     })
     orca.panels.handle('images.preview', async input => (await api()).image(input.id))
@@ -176,8 +182,8 @@ export function createWorker(
       return startBridge(async caller => {
         const { workspaces, truncated } = await orca.host.call('workspace.list', {})
         if (truncated) throw Error('Workspace list is incomplete. Cannot safely read the selected Asana task.')
-        const matches = workspaces.filter(row => (!row.hostId || row.hostId === 'local') && scopePath(row.path) === scopePath(caller.cwd))
-        if (caller.workspaceId !== undefined && !workspaces.some(row => row.id === caller.workspaceId && (!row.hostId || row.hostId === 'local') && scopePath(row.path) === scopePath(caller.cwd))) throw Error('The specified Orca workspace does not match this Agent directory.')
+        const matches = workspaces.filter(row => (!row.hostId || row.hostId === 'local') && cwdPath(row.path) === cwdPath(caller.cwd))
+        if (caller.workspaceId !== undefined && !workspaces.some(row => row.id === caller.workspaceId && (!row.hostId || row.hostId === 'local') && cwdPath(row.path) === cwdPath(caller.cwd))) throw Error('The specified Orca workspace does not match this Agent directory.')
         const workspace = caller.workspaceId !== undefined ? workspaces.find(row => row.id === caller.workspaceId) : matches.length === 1 ? matches[0] : undefined
         if (!workspace) throw Error('Open this Agent in an unambiguous Orca workspace on the same host to read the selected Asana task.')
         const list = await orca.host.call('project.list', {})
@@ -188,17 +194,16 @@ export function createWorker(
         const { value: binding } = await orca.host.call('storage.get', { key: 'bindings.v1' })
         const bound = binding && typeof binding === 'object' ? (binding as Record<string, Project>)[scope] : null
         if (!bound) return null
+        const queueKey = selectionQueueKey(workspace.id, scope, bound.id)
+        await selectionWrites.get(queueKey)?.catch(() => {})
         const key = await mcpSelectionKey(workspace.id, scope, bound.id)
-        await selectionWrites.get(key)?.catch(() => {})
         const { value: selected } = await orca.host.call('storage.get', { key })
         if (typeof selected !== 'string' || !selected) return null
         if (!validId(selected) || !validId(bound.id)) throw Error('The saved Asana task or project ID is invalid.')
         const config = await saved()
         if (!config) throw Error('Connect an Asana API token first.')
-        const detailPromise = makeClient('asana', config).detail(selected, bound.id) as Promise<AsanaTaskDetail>
-        const detail = await detailPromise
-        if (!detail.projects?.includes(bound.id)) return null
-        await selectionWrites.get(key)?.catch(() => {})
+        const detail = await makeClient('asana', config).detail(selected, bound.id, { includeAllComments: true, includeImages: false })
+        await selectionWrites.get(queueKey)?.catch(() => {})
         const [latest, latestBindings, currentConfig] = await Promise.all([
           orca.host.call('storage.get', { key }), orca.host.call('storage.get', { key: 'bindings.v1' }), saved(),
         ])

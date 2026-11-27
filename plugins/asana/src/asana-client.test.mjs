@@ -55,20 +55,31 @@ test('subtasks use original all-page traversal and exclude completed children', 
   assert.equal(pages, 2)
 })
 
-test('details use original notes and comments projection, traversing all comment pages; completed tasks are rejected', async () => {
-  let completed = false, stories = 0
+test('details preserve sidebar comment order while MCP mode returns recent comments and skips images', async () => {
+  let completed = false, attachmentCalls = 0
   const api = asanaClient('asana', { token: 'test-only-token' }, async value => {
     const url = new URL(value)
     if (url.pathname.endsWith('/stories')) {
-      stories++; return json({ data: [{ gid: String(stories), resource_subtype: 'comment_added', text: 'Comment ' + stories, created_by: { name: 'Demo' } }], next_page: stories === 1 ? { offset: 'next' } : null })
+      const start = url.searchParams.get('offset') === 'next' ? 30 : 0
+      const end = start ? 35 : 30
+      return json({ data: Array.from({ length: end - start }, (_, index) => {
+        const number = start + index + 1
+        return { gid: String(number), resource_subtype: 'comment_added', text: 'Comment ' + number, created_by: { name: 'Demo' } }
+      }), next_page: start ? null : { offset: 'next' } })
     }
+    if (url.pathname.endsWith('/attachments')) { attachmentCalls++; return json({ data: [], next_page: null }) }
     return json({ data: { ...task('42'), notes: 'Original task notes', completed, parent: { gid: '41', name: 'Parent task' } } })
   })
   const detail = await api.detail('42', '12')
-  assert.equal(detail.description, 'Original task notes'); assert.equal(detail.comments.length, 2)
+  assert.equal(detail.description, 'Original task notes'); assert.equal(detail.comments.length, 30)
+  assert.deepEqual(detail.comments.slice(0, 2).map(comment => comment.id), ['1', '2'])
   assert.equal(detail.section, 'Doing')
   assert.equal(detail.parent.id, '41')
   assert.equal(detail.customFields[0].name, 'Priority')
+  const mcpDetail = await api.detail('42', '12', { includeAllComments: true, includeImages: false })
+  assert.equal(mcpDetail.comments.length, 30)
+  assert.deepEqual(mcpDetail.comments.slice(-5).map(comment => comment.id), ['31', '32', '33', '34', '35'])
+  assert.equal(attachmentCalls, 1)
   completed = true
   await assert.rejects(api.detail('42'), /completed or deleted/)
 })
