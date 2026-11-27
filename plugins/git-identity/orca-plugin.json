@@ -4,12 +4,12 @@
   "name": "Git Identity",
   "version": "0.1.0",
   "description": "Repository Git identity editing, gh account discovery and GitHub push-account binding.",
-  "engines": { "orca": ">=1.4.248" },
+  "engines": { "orca": ">=1.4.274" },
   "execution": "trusted-worker",
   "pluginApi": 1,
   "main": "src/worker.ts",
   "contributes": {
-    "panels": [{ "id": "identity", "title": "Git Identity", "icon": "branch", "entry": "src/panel.tsx", "ui": "components" }],
+    "panels": [{ "id": "identity", "title": "Git Identity", "icon": { "viewBox": "0 0 78 78", "mode": "fill", "path": "M42.536 76.477C40.583 78.429 37.417 78.429 35.464 76.477L1.523 42.536C-0.429 40.583-0.429 37.417 1.523 35.464L24.858 12.13 33.728 21C32.938 23.131 33.399 25.62 35.111 27.333 35.631 27.853 36.222 28.257 36.854 28.546L36.854 50.161C36.222 50.45 35.631 50.855 35.111 51.374 32.768 53.718 32.768 57.517 35.111 59.86 37.454 62.203 41.253 62.203 43.596 59.86 45.939 57.517 45.939 53.718 43.596 51.374 43.076 50.855 42.485 50.45 41.854 50.161L41.854 29.126 49.991 37.263C49.201 39.394 49.662 41.884 51.374 43.596 53.718 45.939 57.517 45.939 59.86 43.596 62.203 41.253 62.203 37.454 59.86 35.111 58.147 33.399 55.658 32.938 53.527 33.728L44.979 25.18C45.769 23.049 45.308 20.56 43.596 18.847 41.884 17.135 39.394 16.674 37.263 17.464L28.393 8.594 35.464 1.523C37.417-0.429 40.583-0.429 42.536 1.523L76.477 35.464C78.429 37.417 78.429 40.583 76.477 42.536Z" }, "entry": "src/panel.tsx", "ui": "components" }],
     "commands": [{ "id": "identity.open", "title": "Git Identity: Edit repository author", "when": "workspace" }],
     "events": [{ "on": "workspace.changed" }]
   },

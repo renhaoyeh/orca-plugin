@@ -10,7 +10,7 @@
   "pluginApi": 1,
   "main": "src/worker.ts",
   "contributes": {
-    "panels": [{ "id": "issues", "title": "Asana", "icon": "blocks", "entry": "src/panel.html", "ui": "html" }],
+    "panels": [{ "id": "issues", "title": "Asana", "icon": { "viewBox": "0 0 24 24", "mode": "fill", "path": "M18.78 12.653c-2.882 0-5.22 2.336-5.22 5.22s2.338 5.22 5.22 5.22 5.22-2.34 5.22-5.22-2.336-5.22-5.22-5.22zm-13.56 0c-2.88 0-5.22 2.337-5.22 5.22 0 2.882 2.338 5.22 5.22 5.22s5.22-2.338 5.22-5.22-2.336-5.22-5.22-5.22zm12-6.525c0 2.883-2.337 5.22-5.22 5.22-2.882 0-5.22-2.337-5.22-5.22 0-2.88 2.338-5.22 5.22-5.22 2.883 0 5.22 2.34 5.22 5.22z" }, "entry": "src/panel.html", "ui": "html" }],
     "hooks": [{ "event": "agent.launch.before" }],
     "mcpServers": [{ "name": "asana", "command": "node", "args": ["-e", "const {readFileSync}=require('node:fs'); const {homedir}=require('node:os'); const {join}=require('node:path'); const {connect}=require('node:net'); const {port,key}=JSON.parse(readFileSync(join(homedir(),'.orca-asana-mcp','bridge.json'),'utf8')); const socket=connect(port,'127.0.0.1'); socket.once('connect',()=>{socket.write(JSON.stringify({key,cwd:process.cwd(),workspaceId:process.env.ASANA_ORCA_WORKSPACE_ID})+'\\n');process.stdin.pipe(socket)}); socket.pipe(process.stdout); socket.on('close',()=>process.stdin.destroy()); socket.on('error',()=>{console.error('Asana MCP bridge is unavailable. Reload the Asana plugin in Orca.');process.exitCode=1});"] }]
   },

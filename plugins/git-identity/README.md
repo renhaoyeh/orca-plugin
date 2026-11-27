@@ -37,6 +37,11 @@ for optional checking with a separately installed TypeScript (`tsc -p .`).
    There is no separate remove-binding button. Choose Default before uninstalling
    if you want this plugin's repository routing removed.
 
+## Git logo attribution
+
+The sidebar icon is adapted as an inline path from the official Git logo by Jason Long,
+licensed under CC BY 3.0: <https://git-scm.com/images/logos/downloads/Git-Icon-Black.svg>.
+
 ## Push routing (herdr-zed behavior)
 
 The credential configuration follows `mods/herdr-zed-github/git-auth.js`: a host-specific
