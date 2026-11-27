@@ -110,8 +110,26 @@ function checkPagination() {
   const remaining = main.scrollHeight - main.scrollTop - main.clientHeight
   if (remaining <= 96) void model.more()
 }
-main.addEventListener('scroll', checkPagination, { passive: true })
-window.addEventListener('resize', checkPagination, { passive: true })
+function updateDetailToolbarTitle() {
+  const toolbar = main.querySelector<HTMLElement>('.detail-toolbar')
+  const title = toolbar?.querySelector<HTMLElement>('.detail-toolbar-title')
+  const back = toolbar?.querySelector<HTMLButtonElement>('.detail-back')
+  const backLabel = toolbar?.querySelector<HTMLElement>('.detail-back-label')
+  const heading = main.querySelector<HTMLElement>('.detail-body .task-title')
+  if (!toolbar || !title || !back || !backLabel) return
+  const label = backLabel.textContent || ''
+  back.setAttribute('aria-label', label)
+  back.title = label
+  const titleText = !state.busy && state.detail && heading ? state.detail.title : ''
+  const show = !!titleText && heading!.getBoundingClientRect().bottom <= toolbar.getBoundingClientRect().bottom + 0.5
+  toolbar.dataset.titleVisible = String(show)
+  title.hidden = !show
+  title.textContent = show ? titleText : ''
+  title.title = show ? titleText : ''
+  backLabel.hidden = show
+}
+main.addEventListener('scroll', () => { checkPagination(); updateDetailToolbarTitle() }, { passive: true })
+window.addEventListener('resize', () => { checkPagination(); updateDetailToolbarTitle() }, { passive: true })
 const paginationResize = new ResizeObserver(checkPagination)
 paginationResize.observe(main)
 document.querySelector('#app')!.append(bar, error, main)
@@ -541,15 +559,18 @@ function agentHandoff() {
 
 function taskDetail() {
   const back = button('detail-back', () => model.back(), icon('back'))
-  const backLabel = element('span')
+  const backLabel = element('span', 'detail-back-label')
   back.append(backLabel)
+  const toolbarTitle = element('span', 'detail-toolbar-title')
+  toolbarTitle.hidden = true
+  toolbarTitle.setAttribute('aria-hidden', 'true')
   const close = iconButton('close', t('Back to tasks'), () => model.back(true))
   const external = iconButton('external', t('Open in Asana'), () => {
     if (state.detail?.url) void frame.host.call('shell.openExternal', { url: state.detail.url }).catch(console.warn)
   })
   const handoff = agentHandoff()
   const body = element('div', 'detail-body')
-  main.append(element('div', 'detail-toolbar', back, element('div', 'actions', external, close)), body, handoff.dialog)
+  main.append(element('div', 'detail-toolbar', back, toolbarTitle, element('div', 'actions', external, close)), body, handoff.dialog)
   return () => {
     const hasHistory = state.history.length > 0
     backLabel.textContent = t(hasHistory ? 'Back' : 'Back to tasks')
@@ -558,6 +579,7 @@ function taskDetail() {
     handoff.update(state.detail)
     if (state.detail) body.replaceChildren(...details(state.detail, handoff.open))
     else body.replaceChildren(...(state.busy ? [skeleton('detail', 5)] : []))
+    updateDetailToolbarTitle()
   }
 }
 
@@ -636,6 +658,7 @@ function render() {
     detailTitle = state.detail.id
     main.querySelector<HTMLElement>('.task-title')?.focus({ preventScroll: true })
   }
+  updateDetailToolbarTitle()
   checkPagination()
 }
 
