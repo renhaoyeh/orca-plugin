@@ -45,6 +45,7 @@ export async function installedAgents(run, workspaceId) {
     .map(agent => ({ id: agent.id, name: agent.name, default: Boolean(agent.default) }))
 }
 
+/** @returns {Promise<{ started: true }>} */
 export async function launchAgent(run, workspaceId, agent, prompt) {
   if (prompt.length > 7000) throw new Error('The Agent prompt is too long. Shorten it before launching.')
   await run(['agent', 'launch', '--agent', agent, '--worktree', workspaceSelector(workspaceId), '--prompt', prompt, '--focus', '--json'])
