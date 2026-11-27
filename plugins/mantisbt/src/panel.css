@@ -196,7 +196,7 @@ button.section-toggle:hover { background: var(--breadcrumb); }
   white-space: nowrap;
 }
 .handoff-dialog {
-  width: min(420px, calc(100% - 20px));
+  width: min(680px, calc(100% - 20px));
   max-height: calc(100% - 20px);
   padding: 0;
   border: 1px solid var(--table-rule);
@@ -213,12 +213,16 @@ button.section-toggle:hover { background: var(--breadcrumb); }
 .handoff-source, .handoff-status, .handoff-error { font-size: 12px; overflow-wrap: anywhere; }
 .handoff-source, .handoff-status { color: var(--muted); }
 .handoff-source { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; overflow: hidden; padding: 5px 10px; background: var(--breadcrumb); border-bottom: 1px solid var(--table-rule); }
+.handoff-columns { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 6fr); align-items: start; gap: 10px; }
+.handoff-options { display: grid; grid-template-rows: auto 1fr; align-self: stretch; gap: 8px; min-width: 0; }
 .handoff-field { display: grid; gap: 5px; min-width: 0; font-weight: 500; }
-.handoff-context { display: grid; gap: 6px; min-width: 0; margin: 0; padding: 8px; border: 1px solid var(--table-rule); background: var(--row); }
+.handoff-context { display: grid; grid-template-rows: auto 1fr; gap: 6px; min-width: 0; margin: 0; padding: 8px; border: 1px solid var(--table-rule); background: var(--row); }
 .handoff-context legend { color: var(--accent); font-weight: 600; }
+.handoff-choices { display: grid; gap: 6px; }
 .handoff-choice { display: flex; align-items: center; gap: 6px; }
 .handoff-choice input { accent-color: var(--accent); }
-.handoff-instructions { font: inherit; resize: vertical; }
+.handoff-instructions-field { grid-template-rows: auto 1fr; }
+.handoff-instructions { font: inherit; resize: none; }
 .handoff-select, .handoff-button {
   min-height: 28px;
   border: 1px solid var(--table-rule);
@@ -228,7 +232,27 @@ button.section-toggle:hover { background: var(--breadcrumb); }
   font: inherit;
 }
 .handoff-select { width: 100%; min-width: 0; padding: 4px 8px; }
-.handoff-select:focus-visible, .handoff-button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.handoff-preview-field { align-self: stretch; grid-template-rows: auto minmax(0, 1fr); }
+.handoff-preview {
+  min-height: min(58vh, 30rem);
+  max-height: min(64vh, 34rem);
+  contain: size;
+  margin: 0;
+  padding: 8px;
+  overflow: auto;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+  border: 1px solid var(--table-rule);
+  border-radius: 3px;
+  background: var(--row);
+  font: inherit;
+  font-weight: 400;
+}
+@media (max-width: 330px) {
+  .handoff-columns { grid-template-columns: minmax(0, 1fr); }
+  .handoff-preview { contain: none; min-height: 0; max-height: min(20rem, 42vh); }
+}
+.handoff-select:focus-visible, .handoff-button:focus-visible, .handoff-preview:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .handoff-status:empty, .handoff-error:empty { position: absolute; }
 .handoff-error { color: var(--danger); }
 .handoff-footer { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }

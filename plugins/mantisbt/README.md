@@ -46,11 +46,13 @@ adapted for the sidebar width. Requires Orca 1.4.259+.
   that workspace, server and project. Returning to the list clears that selection.
   From issue details, the issue number and Open original open the original issue in the browser.
 - **Start work** below the issue title opens a dialog with the Agents available for the
-  focused workspace. Choose the issue details or share its title and link, then select
-  **Start session**.
-  The handoff includes the issue URL and the bounded description with reproduction steps
-  and additional information, targets the workspace ID revalidated at launch, and opens a
-  new Agent using the user's Chat/CLI preference. It requires the `agent:launch` grant;
+  focused workspace. Choose which issue details to include and add your own instructions.
+  The **Agent prompt preview** updates live and shows the exact text sent by **Start session**.
+  Title, link, description and Activities are selected by default. Activities adds
+  the text of issue notes and can be unchecked before launch.
+  The handoff uses the selected issue content, targets the workspace ID revalidated
+  at launch, and opens a new Agent using the user's Chat/CLI preference.
+  It requires the `agent:launch` grant;
   it does not create a worktree or change MantisBT.
 
 Status swatches use the configured server color when it supplies a hexadecimal color,
