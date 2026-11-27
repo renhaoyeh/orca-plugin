@@ -11,9 +11,9 @@ test('stdio MCP exposes one read-only live current-task tool', { timeout: 15000 
   const home = await mkdtemp(join(tmpdir(), 'asana-bridge-test-'))
   t.after(() => rm(home, { recursive: true, force: true }))
   const directory = join(home, '.orca-asana-mcp')
-  const task = { id: '42', title: 'Fixture task', description: 'Notes', url: 'https://app.asana.com/0/1/42', comments: [{ author: 'Tester', at: 'now', text: 'Recent' }], truncated: false }
+  const task = { id: '42', title: 'Fixture task', description: 'Notes', url: 'https://app.asana.com/0/1/42', comments: [{ author: 'Tester', at: 'now', text: 'C'.repeat(1001) }], commentsError: 'Some comments failed.', truncated: false }
   let selected = task
-  const close = await startMcpBridge(async () => { throw Error('API is not needed for selection reads') }, async caller => {
+  const close = await startMcpBridge(async caller => {
     assert.equal(caller.workspaceId, 'workspace-test')
     return selected
   }, directory)
@@ -28,7 +28,11 @@ test('stdio MCP exposes one read-only live current-task tool', { timeout: 15000 
   assert.deepEqual(tools.map(tool => tool.name), ['get_current_task'])
   assert.equal(tools[0].annotations.readOnlyHint, true)
   const read = async () => JSON.parse((await client.callTool({ name: 'get_current_task', arguments: {} })).content[0].text)
-  assert.deepEqual(await read(), { task })
+  const result = await read()
+  assert.equal(result.task.id, task.id)
+  assert.equal(result.task.comments[0].text.length, 1000)
+  assert.equal(result.task.commentsError, task.commentsError)
+  assert.equal(result.task.truncated, true)
   selected = { ...task, id: '43', title: 'After navigation' }
   assert.equal((await read()).task.id, '43')
   selected = null

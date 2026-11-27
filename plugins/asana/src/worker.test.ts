@@ -1,9 +1,9 @@
 import { assert, mockHost, mountWorker, test } from 'orca/testing'
 import { createWorker } from './worker'
 import { detail as exampleDetail } from './fixtures'
-const fake = { subtasks: async () => [], validate: async () => { throw Error('Original Asana token save does not validate over the network') }, projects: async () => ({ items: [], next: null }), issues: async () => ({ items: [], next: null }), detail: async () => exampleDetail, projectInfo: async (id: string) => ({ id, name: 'Asana project', workspaceId: '1' }) }
+const fake = { image: async () => '', subtasks: async () => [], validate: async () => { throw Error('Original Asana token save does not validate over the network') }, projects: async () => ({ items: [], next: null }), issues: async () => ({ items: [], next: null }), detail: async () => exampleDetail, projectInfo: async (id: string) => ({ id, name: 'Asana project', workspaceId: '1' }) }
 const input = { url: '', token: 'test-only-token' }
-const capabilities = ['secrets:own', 'storage:own']
+const capabilities = ['secrets:own', 'storage:own', 'workspace:read']
 test('shares reads across views and invalidates them on refresh or token changes', async () => {
   let listCalls = 0, detailCalls = 0
   const host = mockHost({ capabilities, secrets: { 'connection.v1': JSON.stringify({ token: input.token }) } })
@@ -75,6 +75,63 @@ test('invalid tokens do not overwrite existing credentials and Mine/All preferen
   await worker.deactivate()
 })
 
+function mcpHarness(detail: (id: string) => Promise<any>) {
+  const storage: Record<string, any> = { 'bindings.v1': { [JSON.stringify(['local', 'c:/repo'])]: { id: '12', name: 'Fixture project' } } }
+  const handlers: Record<string, (input?: any) => Promise<any> | any> = {}
+  const workspaces = [
+    { id: 'ws-a', path: 'C:/repo', hostId: 'local', projectId: 'repo', kind: 'worktree', name: 'A', branch: 'main' },
+    { id: 'ws-b', path: 'C:/repo', hostId: 'local', projectId: 'repo', kind: 'worktree', name: 'B', branch: 'main' },
+  ]
+  let focused = 'ws-a'
+  const orca: any = {
+    grantedCapabilities: capabilities,
+    hooks: { on: () => ({ dispose() {} }) },
+    panels: { handle: (name: string, handler: (input?: any) => unknown) => { handlers[name] = handler as any } },
+    log: () => {},
+    host: { call: async (method: string, args: any = {}) => {
+      if (method === 'workspace.readContext') return { workspaceId: focused, branch: 'main', displayName: 'Repo', terminals: [] }
+      if (method === 'workspace.list') return { workspaces, truncated: false }
+      if (method === 'project.list') return { projects: [{ id: 'repo', name: 'Repo', path: 'C:/repo', hostId: 'local', kind: 'git' }], truncated: false }
+      if (method === 'secrets.get') return { value: JSON.stringify({ token: input.token }) }
+      if (method === 'storage.get') return { value: storage[args.key] }
+      if (method === 'storage.set') { storage[args.key] = args.value; return { ok: true } }
+      throw Error(`Unexpected host call: ${method}`)
+    } },
+  }
+  return createWorker(() => ({ ...fake, detail }), async () => JSON.stringify(['local', 'c:/repo']), undefined, async readTask => { handlers.readTask = readTask; return async () => {} })(orca).then(() => ({ handlers, storage, focus(id: string) { focused = id } }))
+}
+
+test('MCP selection isolates same-repository workspaces and serves a background caller', async () => {
+  const harness = await mcpHarness(async id => ({ ...exampleDetail, id }))
+  const scope = JSON.stringify(['local', 'c:/repo'])
+  await harness.handlers['tasks.selection.save']({ workspaceId: 'ws-a', scope, project: '12', id: '42' })
+  harness.focus('ws-b')
+  await harness.handlers['tasks.selection.save']({ workspaceId: 'ws-b', scope, project: '12', id: '43' })
+  assert.equal((await harness.handlers.readTask({ cwd: 'C:/repo', workspaceId: 'ws-a' })).id, '42')
+  assert.equal((await harness.handlers.readTask({ cwd: 'C:/repo', workspaceId: 'ws-b' })).id, '43')
+  await assert.rejects(harness.handlers.readTask({ cwd: 'C:/repo', workspaceId: 'ws-unknown' }), /does not match/)
+  await assert.rejects(harness.handlers['tasks.selection.save']({ workspaceId: 'ws-a', scope, project: '12', id: '44' }), /Workspace changed/)
+  assert.equal(new Set(Object.keys(harness.storage).filter(key => key.startsWith('current-task.v1.'))).size, 2)
+})
+
+test('MCP rejects a selection change while Asana detail is loading', async () => {
+  let release!: (value: typeof exampleDetail) => void
+  const harness = await mcpHarness(() => new Promise<typeof exampleDetail>(resolve => { release = resolve }))
+  const scope = JSON.stringify(['local', 'c:/repo'])
+  await harness.handlers['tasks.selection.save']({ workspaceId: 'ws-a', scope, project: '12', id: '42' })
+  const result = harness.handlers.readTask({ cwd: 'C:/repo', workspaceId: 'ws-a' })
+  while (!release) await new Promise(resolve => setTimeout(resolve, 0))
+  await harness.handlers['tasks.selection.save']({ workspaceId: 'ws-a', scope, project: '12', id: '43' })
+  release(exampleDetail)
+  await assert.rejects(result, /selection.*changed/)
+})
+
+test('MCP refuses a selected task outside the workspace project binding', async () => {
+  const harness = await mcpHarness(async id => ({ ...exampleDetail, id, projects: ['999'] }))
+  const scope = JSON.stringify(['local', 'c:/repo'])
+  await harness.handlers['tasks.selection.save']({ workspaceId: 'ws-a', scope, project: '12', id: '42' })
+  assert.equal(await harness.handlers.readTask({ cwd: 'C:/repo', workspaceId: 'ws-a' }), null)
+})
 test('Agent handoff discovers available CLIs and only launches in the still-focused workspace', async () => {
   const host = mockHost({ capabilities: [...capabilities, 'workspace:read', 'agent:launch'], results: {
     'workspace.readContext': { workspaceId: 'ws-1', branch: 'main', displayName: 'Workspace', terminals: [] },

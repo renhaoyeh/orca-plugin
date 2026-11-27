@@ -10,7 +10,7 @@ export function bridgeDirectory() {
   return join(homedir(), '.orca-asana-mcp')
 }
 
-export async function startMcpBridge(api, currentTask, directory = bridgeDirectory()) {
+export async function startMcpBridge(currentTask, directory = bridgeDirectory()) {
   const key = randomBytes(32).toString('hex')
   const sockets = new Set()
   const listener = createServer(socket => {
@@ -34,7 +34,7 @@ export async function startMcpBridge(api, currentTask, directory = bridgeDirecto
       socket.off('data', authenticate)
       socket.unshift(pending.subarray(end + 1))
       pending = null
-      const server = createMcpServer(api, () => currentTask(hello))
+      const server = createMcpServer(() => currentTask(hello))
       const transport = new StdioServerTransport(socket, socket, { maxBufferSize: 1024 * 1024 })
       socket.once('close', () => { void server.close().catch(() => {}) })
       void server.connect(transport).then(() => socket.resume(), () => socket.destroy())

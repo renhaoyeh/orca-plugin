@@ -18,9 +18,9 @@ const bound = { ...connected, binding: project }
 
 test('saving a token opens project search and waits for an explicit binding', async () => {
   const model = createModel({
-    'connection.read': () => ({ configured: false, url: '' }),
+    'connection.read': () => ({ configured: false, url: '', workspaceId: null }),
     'connection.save': () => connected,
-    'connection.remove': () => ({ configured: false, url: '' }),
+    'connection.remove': () => ({ configured: false, url: '', workspaceId: null }),
   })
   await model.reload()
   assert.equal(model.state.settings, true)
@@ -33,6 +33,9 @@ test('saving a token opens project search and waits for an explicit binding', as
   await model.bindProject(project)
   assert.equal(model.state.project?.id, project.id)
   assert.equal(model.state.issues[0].id, detail.id)
+  model.onWorkspace('workspace-a')
+  await model.openTask(detail.id)
+  assert.ok(model.recorded.some(({ name, input }) => name === 'tasks.selection.save' && (input as any)?.project === project.id && (input as any)?.id === detail.id))
   await model.disconnect()
   assert.deepEqual(model.state.issues, [])
   assert.equal(model.state.config?.configured, false)
@@ -65,8 +68,7 @@ test('restores the binding and remembers the list while navigating an open task'
 })
 
 test('current-task selection follows navigation, Back, list clear, and workspace identity', async () => {
-  const model = createModel({ 'connection.read': () => bound })
-  model.onWorkspace('workspace-a')
+  const model = createModel({ 'connection.read': () => ({ ...bound, workspaceId: 'workspace-a' }) })
   await model.reload()
   await model.openTask(detail.id)
   await model.openTask('44')
@@ -80,6 +82,21 @@ test('current-task selection follows navigation, Back, list clear, and workspace
     { workspaceId: 'workspace-a', scope: connected.scope, project: project.id, id: detail.id },
     { workspaceId: 'workspace-a', scope: connected.scope, project: project.id, id: null },
   ])
+  model.dispose()
+})
+
+test('initial identity and same-project workspace switch synchronize the displayed task', async () => {
+  let activeWorkspace = 'workspace-a'
+  const model = createModel({ 'connection.read': () => ({ ...bound, workspaceId: activeWorkspace }) })
+  await model.reload()
+  await model.openTask(detail.id)
+  activeWorkspace = 'workspace-b'
+  model.onWorkspace(activeWorkspace)
+  await new Promise(resolve => setTimeout(resolve, 0))
+  assert.equal(model.state.detailId, detail.id)
+  assert.equal(model.state.config?.workspaceId, 'workspace-b')
+  const selections = model.recorded.filter(({ name }) => name === 'tasks.selection.save').map(({ input }) => input)
+  assert.deepEqual(selections.at(-1), { workspaceId: 'workspace-b', scope: connected.scope, project: project.id, id: detail.id })
   model.dispose()
 })
 

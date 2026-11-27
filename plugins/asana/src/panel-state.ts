@@ -12,16 +12,17 @@ export function createPanelState(request: PluginBridgeApi['request'], changed: (
   }
   const cache = new Map<string, Page<Issue>>()
   let generation = 0
-  let workspace: string | null | undefined
   let searchTimer: ReturnType<typeof setTimeout> | undefined
   let saveTimer: ReturnType<typeof setTimeout> | undefined
   let pendingSearch = false
   let pendingSave = false
   let workspaceChanged = false
-  let workspaceId: string | null = null
   function persistSelection(id: string | null) {
-    const scope = state.config?.scope, project = state.project?.id
-    if (workspaceId && scope && project) void request('tasks.selection.save', { workspaceId, scope, project, id }).catch(() => {})
+    const { workspaceId, scope, binding } = state.config || {}
+    const project = state.project?.id
+    if (workspaceId && scope && binding?.id === project && project) {
+      void request('tasks.selection.save', { workspaceId, scope, project, id }).catch(() => {})
+    }
   }
 
   function patch(values: Partial<typeof state>) {
@@ -98,7 +99,8 @@ export function createPanelState(request: PluginBridgeApi['request'], changed: (
     return run(async current => {
       const saved = await request('project.bind', { scope: state.config?.scope || 'source:asana', id: project.id })
       if (!current()) return
-      patch({ project: saved, picker: false, query: '', issues: [], next: null, collapsedSections: new Set() })
+      patch({ config: state.config ? { ...state.config, binding: saved } : state.config, project: saved, picker: false, query: '', issues: [], next: null, collapsedSections: new Set() })
+      persistSelection(null)
       await loadIssues(current)
     })
   }
@@ -140,7 +142,7 @@ export function createPanelState(request: PluginBridgeApi['request'], changed: (
     const previous = toList ? undefined : state.history.at(-1)
     // Stop applying results from the task that just left the screen.
     generation++
-    persistSelection(toList ? null : state.history.at(-1)?.detail.id ?? null)
+    persistSelection(previous?.detail.id ?? null)
     patch({
       picker: false, busy: false, problem: '', history: toList ? [] : state.history.slice(0, -1),
       detailId: previous?.detail.id ?? '', detail: previous?.detail ?? null, children: previous?.children ?? [],
@@ -186,6 +188,9 @@ export function createPanelState(request: PluginBridgeApi['request'], changed: (
       if (!force && state.config?.scope === saved.scope && state.config?.configured === saved.configured
         && state.project?.id === saved.binding?.id && state.tab === (saved.tab ?? 'mine')) {
         patch({ config: saved })
+        // Same-project workspace changes preserve the visible detail; associate
+        // that displayed task with the newly resolved workspace snapshot.
+        persistSelection(state.detailId || null)
         return
       }
       clearTimeout(searchTimer)
@@ -204,10 +209,8 @@ export function createPanelState(request: PluginBridgeApi['request'], changed: (
   }
 
   function onWorkspace(id: string | null) {
-    if (workspace === id) return
-    if (workspace !== undefined) workspaceChanged = true
-    workspace = id
-    workspaceId = id
+    if (state.config?.workspaceId === id) return
+    if (state.config) workspaceChanged = true
     if (workspaceChanged && !state.settings) void reload()
   }
 
