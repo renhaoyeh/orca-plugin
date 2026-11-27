@@ -173,6 +173,17 @@ button.section-toggle:hover { background: var(--hover); }
 .body-copy { white-space: pre-wrap; overflow-wrap: anywhere; }
 .muted { color: var(--muted); }
 .comments { padding: 13px 15px 20px; border-top: 1px solid var(--line); }
+.activity-timeline { display: grid; gap: 2px; margin: 0; padding: 0; list-style: none; }
+.activity-item { display: grid; grid-template-columns: 23px minmax(0, 1fr); align-items: start; column-gap: 8px; min-width: 0; padding: 7px 0; }
+.activity-item--comment .avatar { grid-column: 1; grid-row: 1; }
+.activity-item--comment .comment-body { grid-column: 2; min-width: 0; }
+.activity-item--update { padding-block: 5px; }
+.activity-update-marker { display: grid; place-items: center; width: 23px; min-height: 21px; color: var(--muted); }
+.activity-update-marker::before { content: ''; width: 6px; height: 6px; border: 1.5px solid currentColor; border-radius: 50%; }
+.activity-update { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 6px; min-width: 0; color: var(--muted); font-size: 12px; line-height: 1.45; overflow-wrap: anywhere; }
+.activity-update-author { color: var(--text); font-size: 12px; font-weight: 550; overflow-wrap: anywhere; }
+.activity-update-text { min-width: 0; overflow-wrap: anywhere; white-space: pre-wrap; }
+.activity-update time { font-size: 11px; white-space: normal; overflow-wrap: anywhere; }
 .handoff-trigger {
   justify-self: start;
   min-height: 32px;

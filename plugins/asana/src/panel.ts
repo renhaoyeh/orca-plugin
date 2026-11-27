@@ -1,7 +1,8 @@
 import type {} from 'orca/frame'
 import type { Issue, IssueDetail } from './protocol'
+import { activityLabel, mergeTaskTimeline } from './activity'
 import { localeOf, translate, translateError } from './i18n'
-import { sectionTone, fieldTone, dueTone, dateLabel } from './presentation'
+import { sectionTone, fieldTone, dueTone, dateLabel, activityDateLabel, validTimestamp } from './presentation'
 import { createPanelState } from './panel-state'
 
 const icons = {
@@ -349,16 +350,29 @@ function details(entry: IssueDetail, handoff: HTMLButtonElement) {
     const children = state.children.length ? list : state.busy ? skeleton('tasks', 2) : element('p', 'muted', state.problem ? '' : t('No open subtasks.'))
     content.append(element('section', 'detail-section detail-subtasks', element('h2', '', t('Subtasks')), children))
   }
-  const comments = element('section', 'comments', element('h2', '', t('Comments')))
-  if (entry.commentsError) comments.append(element('p', 'muted', t(entry.commentsError)))
-  else if (!entry.comments.length) comments.append(element('p', 'muted', t('No comments.')))
-  for (const comment of entry.comments) {
-    const author = element('div', 'comment-author', element('strong', '', comment.author))
-    if (comment.at) author.append(element('time', 'muted', formatDate(comment.at)))
-    comments.append(element('div', 'comment', avatar(comment.author), element('div', 'comment-body', author, element('p', 'body-copy', comment.text))))
+  const activities = element('section', 'comments', element('h2', '', t('Activities')))
+  const timeline = mergeTaskTimeline(entry.comments, entry.activities || [])
+  const activitiesError = entry.activitiesError || (entry.commentsError ? 'Activities could not be loaded. Refresh to retry.' : '')
+  if (activitiesError) activities.append(element('p', 'muted', t(activitiesError)))
+  else if (!timeline.length) activities.append(element('p', 'muted', t('No activity yet.')))
+  const timelineList = element('ol', 'activity-timeline')
+  for (const item of timeline) {
+    const timestamp = item.at ? element('time', 'muted', item.kind === 'activity' ? activityDateLabel(item.at, locale) : formatDate(item.at)) : null
+    if (timestamp && item.at && validTimestamp(item.at)) timestamp.dateTime = item.at
+    if (item.kind === 'comment') {
+      const author = element('div', 'comment-author', element('strong', '', item.author))
+      if (timestamp) author.append(timestamp)
+      timelineList.append(element('li', 'activity-item activity-item--comment', avatar(item.author), element('div', 'comment-body', author, element('p', 'body-copy', item.text))))
+    } else {
+      const action = item.text || activityLabel(item.subtype, item.fallback, t)
+      const update = element('div', 'activity-update', element('strong', 'activity-update-author', item.author), element('span', 'activity-update-text', action))
+      if (timestamp) update.append(timestamp)
+      timelineList.append(element('li', 'activity-item activity-item--update', element('span', 'activity-update-marker'), update))
+    }
   }
-  if (entry.truncated) comments.append(element('p', 'muted', t('Preview shortened. Open original for the full content.')))
-  return [content, comments]
+  if (timeline.length && !activitiesError) activities.append(timelineList)
+  if (entry.truncated || entry.activitiesTruncated) activities.append(element('p', 'muted', t('Preview shortened. Open original for the full content.')))
+  return [content, activities]
 }
 
 function handoffPrompt(entry: IssueDetail, included: Set<string>, instructions: string) {

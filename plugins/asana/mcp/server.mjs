@@ -8,9 +8,22 @@ export function createMcpServer(currentTask) {
     try {
       const task = await currentTask()
       if (!task) return { content: [{ type: 'text', text: JSON.stringify({ task: null }) }] }
-      const comments = task.comments.slice(-5).map(({ author, at, text }) => ({ author, at, text: text.slice(0, 1000) }))
-      const commentsTruncated = task.comments.length > comments.length || comments.some((comment, index) => comment.text.length < task.comments.slice(-5)[index].text.length)
-      const result = { id: task.id, title: task.title.slice(0, 500), description: task.description.slice(0, 12000), url: task.url, comments, ...(task.commentsError ? { commentsError: task.commentsError } : {}), truncated: task.truncated || task.title.length > 500 || task.description.length > 12000 || commentsTruncated }
+      const allComments = task.comments || []
+      const recentComments = allComments.slice(-5)
+      const comments = recentComments.map(({ author, at, text }) => ({ author, at, text: (text || '').slice(0, 1000) }))
+      const commentsTruncated = task.commentsTruncated === true || allComments.length > comments.length ||
+        comments.some((comment, index) => comment.text.length < (recentComments[index].text || '').length)
+      const allActivities = task.activities || []
+      const recentActivities = allActivities.slice(-10)
+      const activities = recentActivities.map(({ id, subtype, author, at, text, fallback }) => ({
+        id, subtype, author, at, text: (text || fallback || String(subtype || 'Activity').replace(/[_-]+/g, ' ')).slice(0, 1000),
+      }))
+      const activitiesTruncated = task.activitiesTruncated === true || allActivities.length > activities.length ||
+        activities.some((activity, index) => activity.text.length < ((recentActivities[index].text || recentActivities[index].fallback || '').length))
+      const result = { id: task.id, title: task.title.slice(0, 500), description: task.description.slice(0, 12000), url: task.url,
+        comments, activities, commentsTruncated, activitiesTruncated,
+        ...(task.commentsError ? { commentsError: task.commentsError } : {}), ...(task.activitiesError ? { activitiesError: task.activitiesError } : {}),
+        truncated: task.truncated || task.title.length > 500 || task.description.length > 12000 || commentsTruncated || activitiesTruncated }
       return { content: [{ type: 'text', text: JSON.stringify({ task: result }) }] }
     } catch (error) { return { isError: true, content: [{ type: 'text', text: error instanceof Error ? error.message : 'Asana request failed.' }] } }
   })

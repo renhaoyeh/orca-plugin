@@ -55,17 +55,32 @@ test('subtasks use original all-page traversal and exclude completed children', 
   assert.equal(pages, 2)
 })
 
-test('details preserve sidebar comment order while MCP mode returns recent comments and skips images', async () => {
-  let completed = false, attachmentCalls = 0
+test('one paginated task story traversal separates comments and system activity', async () => {
+  let completed = false, attachmentCalls = 0, storyCalls = 0
   const api = asanaClient('asana', { token: 'test-only-token' }, async value => {
     const url = new URL(value)
     if (url.pathname.endsWith('/stories')) {
+      storyCalls++
+      assert.equal(url.searchParams.has('resource_subtype'), false)
+      assert.match(url.searchParams.get('opt_fields'), /resource_subtype/)
+      assert.match(url.searchParams.get('opt_fields'), /created_by\.name/)
       const start = url.searchParams.get('offset') === 'next' ? 30 : 0
       const end = start ? 35 : 30
-      return json({ data: Array.from({ length: end - start }, (_, index) => {
+      const comments = Array.from({ length: end - start }, (_, index) => {
         const number = start + index + 1
-        return { gid: String(number), resource_subtype: 'comment_added', text: 'Comment ' + number, created_by: { name: 'Demo' } }
-      }), next_page: start ? null : { offset: 'next' } })
+        return { gid: String(number), resource_subtype: 'comment_added', text: 'Comment ' + number, created_at: new Date(Date.UTC(2026, 0, number)).toISOString(), created_by: { name: 'Demo' } }
+      })
+      const system = start
+        ? [
+          { gid: 'section-1', resource_subtype: 'section_changed', created_at: '2026-02-02T00:00:00.000Z', created_by: { name: 'Section actor' } },
+          { gid: 'empty-comment', resource_subtype: 'comment_added', text: '  ', created_by: { name: 'No comment' } },
+        ]
+        : [
+          ...Array.from({ length: 30 }, (_, index) => ({ gid: `noise-${index + 1}`, resource_subtype: 'assigned', text: 'Assignment updated', created_at: new Date(Date.UTC(2025, 11, index + 1)).toISOString(), created_by: { name: 'History actor' } })),
+          { gid: 'assignment-1', resource_subtype: 'assigned', text: 'Assigned to Demo', created_at: '2026-01-15T00:00:00.000Z', created_by: { name: 'Assigner' } },
+          { gid: 'due-1', resource_subtype: 'due_date_changed', text: 'Changed due date', created_at: '2026-01-31T00:00:00.000Z', created_by: { name: 'Planner' } },
+        ]
+      return json({ data: [...comments, ...system], next_page: start ? null : { offset: 'next' } })
     }
     if (url.pathname.endsWith('/attachments')) { attachmentCalls++; return json({ data: [], next_page: null }) }
     return json({ data: { ...task('42'), notes: 'Original task notes', completed, parent: { gid: '41', name: 'Parent task' } } })
@@ -76,10 +91,67 @@ test('details preserve sidebar comment order while MCP mode returns recent comme
   assert.equal(detail.section, 'Doing')
   assert.equal(detail.parent.id, '41')
   assert.equal(detail.customFields[0].name, 'Priority')
+  assert.equal(detail.comments.length, 30)
+  assert.equal(detail.activities.length, 30)
+  assert.deepEqual(detail.activities.slice(-3).map(activity => activity.id), ['assignment-1', 'due-1', 'section-1'])
+  assert.equal(detail.activities.at(-1).subtype, 'section_changed')
+  assert.equal(detail.activities.at(-1).author, 'Section actor')
+  assert.equal(detail.activities.at(-1).text, '')
+  assert.equal(detail.activities.at(-1).fallback, 'Section Changed')
+  assert.equal(detail.activitiesTruncated, true)
+  assert.equal(detail.truncated, true)
+  assert.equal(storyCalls, 2)
   const mcpDetail = await api.detail('42', '12', { includeAllComments: true, includeImages: false })
   assert.equal(mcpDetail.comments.length, 30)
   assert.deepEqual(mcpDetail.comments.slice(-5).map(comment => comment.id), ['31', '32', '33', '34', '35'])
+  assert.equal(mcpDetail.activities.length, 30)
+  assert.deepEqual(mcpDetail.activities.slice(-3).map(activity => activity.subtype), ['assigned', 'due_date_changed', 'section_changed'])
+  assert.equal(storyCalls, 4)
   assert.equal(attachmentCalls, 1)
   completed = true
   await assert.rejects(api.detail('42'), /completed or deleted/)
+})
+
+test('activity stories with missing text remain activities and a story failure reports both collections', async () => {
+  let storyFailure = false
+  const api = asanaClient('asana', { token: 'test-only-token' }, async value => {
+    const url = new URL(value)
+    if (url.pathname.endsWith('/stories')) return storyFailure
+      ? new Response('{}', { status: 503 })
+      : json({ data: [
+        { gid: 'comment-empty', resource_subtype: 'comment_added', text: '   ' },
+        { gid: 'event-empty', resource_subtype: 'due_date_changed' },
+        { gid: 'invalid-event', text: 'No subtype, so not valid activity' },
+      ] })
+    return json({ data: { ...task('42'), notes: '', completed: false } })
+  })
+  const detail = await api.detail('42')
+  assert.deepEqual(detail.comments, [])
+  assert.equal(detail.activities.length, 1)
+  assert.equal(detail.activities[0].id, 'event-empty')
+  assert.equal(detail.activities[0].text, '')
+  assert.equal(detail.activities[0].fallback, 'Due Date Changed')
+  assert.equal(detail.activities[0].author, 'Someone')
+  assert.equal(detail.activities[0].at, null)
+  storyFailure = true
+  const failed = await api.detail('42')
+  assert.equal(failed.commentsError, 'Comments could not be loaded. Refresh to retry.')
+  assert.equal(failed.activitiesError, 'Activities could not be loaded. Refresh to retry.')
+})
+
+test('system activity truncation is separate from shortened notes and comments', async () => {
+  const api = asanaClient('asana', { token: 'test-only-token' }, async value => {
+    const url = new URL(value)
+    if (url.pathname.endsWith('/stories')) return json({ data: [
+      { gid: 'comment', resource_subtype: 'comment_added', text: 'Short comment' },
+      ...Array.from({ length: 31 }, (_, index) => ({ gid: `event-${index}`, resource_subtype: 'assigned', text: 'Short event' })),
+    ] })
+    return json({ data: { ...task('42'), notes: 'Short notes', completed: false } })
+  })
+  const detail = await api.detail('42', null, { includeImages: false })
+  assert.equal(detail.comments.length, 1)
+  assert.equal(detail.activities.length, 30)
+  assert.equal(detail.activitiesTruncated, true)
+  assert.equal(detail.commentsTruncated, false)
+  assert.equal(detail.truncated, false)
 })

@@ -72,10 +72,24 @@ export async function taskDetails(token, gid, project, request = fetch) {
   }
 }
 
-// Comments are the task's stories of the comment kind, oldest first, as Asana shows them.
-export async function taskComments(token, gid, request = fetch) {
-  return (await asanaList(offset => asanaApi.listStories(token, gid, { limit: 100, opt_fields: 'resource_subtype,text,created_at,created_by.name,created_by.gid', offset }, request)))
-    .filter(story => story.resource_subtype === 'comment_added' && story.text?.trim())
-    .map(story => ({ gid: story.gid, author: story.created_by?.name || 'Someone', authorGid: story.created_by?.gid || null,
-      text: story.text.trim(), at: story.created_at || null }));
+const subtypeFallback = subtype => subtype.replace(/[_-]+/g, ' ').replace(/\b\w/g, letter => letter.toUpperCase()).slice(0, 240) || 'Activity';
+
+// Traverse the full task story feed once; comments retain their existing feed order.
+export async function taskActivity(token, gid, request = fetch) {
+  const stories = await asanaList(offset => asanaApi.listStories(token, gid, { limit: 100, opt_fields: 'resource_subtype,text,created_at,created_by.name,created_by.gid', offset }, request));
+  const comments = [], activities = [];
+  for (const story of stories) {
+    const subtype = typeof story.resource_subtype === 'string' ? story.resource_subtype.trim() : '';
+    if (!story.gid || !subtype) continue;
+    const text = typeof story.text === 'string' ? story.text.trim() : '';
+    const author = story.created_by?.name || 'Someone';
+    const authorGid = story.created_by?.gid || null;
+    const at = story.created_at || null;
+    if (subtype === 'comment_added') {
+      if (text) comments.push({ gid: story.gid, author, authorGid, text, at });
+    } else {
+      activities.push({ gid: story.gid, subtype, author, authorGid, at, text, fallback: subtypeFallback(subtype) });
+    }
+  }
+  return { comments, activities };
 }

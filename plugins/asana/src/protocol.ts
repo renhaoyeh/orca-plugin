@@ -1,7 +1,12 @@
 export type Project = { id: string; name: string; workspaceId?: string; workspaceName?: string }
 export type ConnectionState = { configured: boolean; url: string; workspaceId: string | null; scope?: string; binding?: Project | null; tab?: 'mine' | 'all' }
 export type Issue = { id: string; title: string; status: string; assignee: string; url: string; section?: string; due?: string; subtasks?: number; assigneeId?: string; customFields?: { id: string; name: string; type: string; displayValue: string; color?: string }[]; parent?: { id: string; title: string } | null }
-export type IssueDetail = Issue & { description: string; descriptionHtml?: string; images?: { id: string; name: string; url: string }[]; comments: { id: string; author: string; text: string; at?: string | null }[]; commentsError: string; truncated: boolean }
+export type IssueDetail = Issue & {
+  description: string; descriptionHtml?: string; images?: { id: string; name: string; url: string }[]
+  comments: { id: string; author: string; text: string; at?: string | null }[]; commentsError: string
+  activities?: { id: string; subtype: string; author: string; at?: string | null; text: string; fallback: string }[]
+  activitiesError?: string; activitiesTruncated?: boolean; commentsTruncated?: boolean; truncated: boolean
+}
 export type Page<T> = { items: T[]; next: string | null }
 declare module 'orca' {
   interface PluginRequests {

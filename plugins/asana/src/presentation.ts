@@ -23,3 +23,12 @@ export function dateLabel(value: string, locale?: string) {
   const date = new Date(/^\d{4}-\d{2}-\d{2}$/.test(value) ? value + 'T12:00:00' : value)
   return Number.isFinite(date.getTime()) ? date.toLocaleDateString(locale, { year: 'numeric', month: 'short', day: 'numeric' }) : value
 }
+export function activityDateLabel(value: string, locale?: string) {
+  const date = new Date(value)
+  return Number.isFinite(date.getTime())
+    ? date.toLocaleString(locale, { year: 'numeric', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
+    : value
+}
+export function validTimestamp(value: string) {
+  return Number.isFinite(new Date(value).getTime())
+}

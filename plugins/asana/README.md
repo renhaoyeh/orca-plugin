@@ -33,7 +33,7 @@ in the same panel. Use **Open in Asana** in the task toolbar to open its web pag
   control is accented. Search matches all typed words against loaded task names,
   assignees and sections. Rows include assignee, due date and subtask count.
 - Clicking a task opens its notes, assignee, due date, Section, project, all returned
-  custom fields and comments inside the plugin. Enum fields use semantic colors when
+  custom fields, comments and Activity history inside the plugin. Enum fields use semantic colors when
   Asana provides an option color. Parent links and open subtasks navigate internally;
   Back restores the prior detail or filtered list. Comment dates are displayed.
   Comments and subtasks use the original all-page/open-item policies. Completed/deleted
@@ -78,16 +78,17 @@ The worker uses read-only Node fetch outside host capability enforcement, only t
 has a 12-second timeout and a 4 MiB JSON-response limit. API errors do not echo bodies,
 headers or tokens. No terminal/agent permissions and no herdr-zed credential migration.
 
-Preview text is bounded to 16,000 notes characters and 30 comments of 1,500 characters;
-shortening is marked. Images and attachments are not downloaded.
+Preview text is bounded to 16,000 notes characters, 30 comments and 30 recent Activity
+events of 1,500 characters each; shortening is marked. Images and attachments are not downloaded.
 
 ## MCP tool
 
 The plugin contributes one read-only MCP tool, `get_current_task`. It reads the task
 selected in the Asana sidebar for the caller's exact Orca workspace each time it is
 called. Back, list, project changes, and workspace switches update or clear that
-selection. The response includes a bounded title, notes, Asana URL, and up to five
-recent comments. It uses the existing encrypted `connection.v1` and Asana client.
+selection. The response includes a bounded title, notes, Asana URL, up to five recent
+comments and ten recent Activity events. It uses the existing encrypted `connection.v1`
+and Asana client.
 No separate login or MCP token is used. Agents must run on the same host as Orca;
 when multiple workspaces share a folder, launch-provided workspace identity is used
 to disambiguate. Requires Orca 1.4.276+ and Node.js 22+; install MCP dependencies

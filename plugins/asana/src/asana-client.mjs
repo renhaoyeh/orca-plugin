@@ -84,14 +84,23 @@ export function asanaClient(_kind, config, request = fetch) {
     async detail(gid, projectId = null, options = {}) {
       const item = await source.taskDetails(token, id(gid), projectId ? id(projectId) : null, request)
       if (!item || item.completed) throw Error('This task was completed or deleted in Asana.')
-      let comments = [], commentsError = ''
+      let comments = [], activities = [], commentsError = '', activitiesError = ''
       const imagesRequest = options.includeImages === false ? Promise.resolve([]) : taskImages(token, gid, request).catch(() => [])
-      try { comments = await source.taskComments(token, gid, request) } catch { commentsError = 'Comments could not be loaded. Refresh to retry.' }
+      try { ({ comments, activities } = await source.taskActivity(token, gid, request)) } catch {
+        commentsError = 'Comments could not be loaded. Refresh to retry.'
+        activitiesError = 'Activities could not be loaded. Refresh to retry.'
+      }
       const displayedComments = options.includeAllComments ? comments.slice(-30) : comments.slice(0, 30)
+      const displayedActivities = activities.slice(-30)
+      const commentsTruncated = comments.length > 30 || comments.some(item => item.text.length > 1500)
+      const activitiesTruncated = activities.length > 30 || activities.some(item => item.text.length > 1500)
       return { ...task(item), images: await imagesRequest, description: item.notes.slice(0, 16000),
         descriptionHtml: item.htmlNotes.length <= 64_000 && item.notes.length <= 16_000 ? item.htmlNotes : '',
         comments: displayedComments.map(item => ({ id: item.gid, author: item.author, text: item.text.slice(0, 1500), at: item.at })), commentsError,
-        truncated: item.notes.length > 16000 || comments.length > 30 || comments.some(item => item.text.length > 1500) }
+        activities: displayedActivities.map(item => ({ id: item.gid, subtype: item.subtype, author: item.author, at: item.at,
+          text: item.text.slice(0, 1500), fallback: item.fallback })), activitiesError,
+        commentsTruncated, activitiesTruncated,
+        truncated: item.notes.length > 16000 || commentsTruncated }
     },
   }
 }
