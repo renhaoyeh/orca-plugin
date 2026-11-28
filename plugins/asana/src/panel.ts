@@ -17,6 +17,7 @@ const icons = {
   close: 'm5 5 10 10M15 5 5 15',
   external: 'M11 3h6v6m0-6-7 7m6 1v5a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1h5',
   task: 'M18 10a8 8 0 1 1-16 0 8 8 0 0 1 16 0ZM6.8 10l2 2 4.4-4.1',
+  play: 'M6 3.5v13l10-6.5-10-6.5Z',
   subtasks: 'M5 3v11a2 2 0 0 0 2 2h3M5 8h5m1-2h5v4h-5zm0 8h5v4h-5z',
   calendar: 'M3 6h14v11H3zm0 3.5h14M7 3v4m6-4v4',
   person: 'M13 7a3 3 0 1 1-6 0 3 3 0 0 1 6 0ZM4 16a6 6 0 0 1 12 0',
@@ -121,26 +122,8 @@ function checkPagination() {
   const remaining = main.scrollHeight - main.scrollTop - main.clientHeight
   if (remaining <= 96) void model.more()
 }
-function updateDetailToolbarTitle() {
-  const toolbar = main.querySelector<HTMLElement>('.detail-toolbar')
-  const title = toolbar?.querySelector<HTMLElement>('.detail-toolbar-title')
-  const back = toolbar?.querySelector<HTMLButtonElement>('.detail-back')
-  const backLabel = toolbar?.querySelector<HTMLElement>('.detail-back-label')
-  const heading = main.querySelector<HTMLElement>('.detail-body .task-title')
-  if (!toolbar || !title || !back || !backLabel) return
-  const label = backLabel.textContent || ''
-  back.setAttribute('aria-label', label)
-  back.title = label
-  const titleText = !state.busy && state.detail && heading ? state.detail.title : ''
-  const show = !!titleText && heading!.getBoundingClientRect().bottom <= toolbar.getBoundingClientRect().bottom + 0.5
-  toolbar.dataset.titleVisible = String(show)
-  title.hidden = !show
-  title.textContent = show ? titleText : ''
-  title.title = show ? titleText : ''
-  backLabel.hidden = show
-}
-main.addEventListener('scroll', () => { checkPagination(); updateDetailToolbarTitle() }, { passive: true })
-window.addEventListener('resize', () => { checkPagination(); updateDetailToolbarTitle() }, { passive: true })
+main.addEventListener('scroll', checkPagination, { passive: true })
+window.addEventListener('resize', checkPagination, { passive: true })
 const paginationResize = new ResizeObserver(checkPagination)
 paginationResize.observe(main)
 document.querySelector('#app')!.append(bar, error, main)
@@ -403,10 +386,8 @@ function taskDescription(entry: IssueDetail) {
   return { body: inlineIds.size ? body : fallback, inlineIds }
 }
 
-function details(entry: IssueDetail, handoff: HTMLButtonElement) {
+function details(entry: IssueDetail) {
   const content = element('article', 'detail-content')
-  const title = element('h1', 'task-title', entry.title)
-  title.tabIndex = -1
   if (entry.parent) {
     const { id, title } = entry.parent
     content.append(button('parent-task', () => model.openTask(id), icon('back'), title))
@@ -424,7 +405,7 @@ function details(entry: IssueDetail, handoff: HTMLButtonElement) {
     field(name, ['enum', 'multi_enum'].includes(type) && displayValue ? element('span', `chip tone-${fieldTone(color, displayValue)}`, value) : value)
   }
   const { body, inlineIds } = taskDescription(entry)
-  content.append(element('div', 'task-heading', element('div', 'task-heading-title', title), handoff), meta,
+  content.append(meta,
     element('section', 'detail-section', element('h2', '', t('Description')), body))
   const attachments = entry.images?.filter(image => !inlineIds.has(image.id))
   if (attachments?.length) content.append(imageAttachments(attachments))
@@ -580,7 +561,8 @@ function agentHandoff() {
     status, problem,
     element('footer', 'handoff-footer', cancel, start)))
 
-  const open = button('handoff-trigger', async () => {
+  const handoffLabel = t('Start work')
+  const open = button('handoff-trigger toolbar-handoff-trigger', async () => {
     if (dialog.open || starting || !state.detail) return
     ticket = state.detail
     source.textContent = ticket.title
@@ -618,7 +600,9 @@ function agentHandoff() {
       status.textContent = ''
       problem.textContent = translateError(cause instanceof Error ? cause.message : 'Could not find Agents.', locale)
     }
-  }, t('Start work'))
+  }, icon('play'), element('span', 'toolbar-handoff-label', handoffLabel))
+  open.title = handoffLabel
+  open.setAttribute('aria-label', handoffLabel)
   open.setAttribute('aria-haspopup', 'dialog')
   return {
     open, dialog,
@@ -631,27 +615,33 @@ function agentHandoff() {
 
 function taskDetail() {
   const back = button('detail-back', () => model.back(), icon('back'))
-  const backLabel = element('span', 'detail-back-label')
-  back.append(backLabel)
-  const toolbarTitle = element('span', 'detail-toolbar-title')
-  toolbarTitle.hidden = true
-  toolbarTitle.setAttribute('aria-hidden', 'true')
+  const toolbarTitle = element('h1', 'detail-toolbar-title task-title')
+  toolbarTitle.tabIndex = -1
   const close = iconButton('close', t('Back to tasks'), () => model.back(true))
+  const closeSlot = element('span', 'detail-action-slot', close)
   const external = iconButton('external', t('Open in Asana'), () => {
     if (state.detail?.url) void frame.host.call('shell.openExternal', { url: state.detail.url }).catch(console.warn)
   })
   const handoff = agentHandoff()
+  const handoffSlot = element('span', 'detail-action-slot detail-action-slot--handoff', handoff.open)
   const body = element('div', 'detail-body')
-  main.append(element('div', 'detail-toolbar', back, toolbarTitle, element('div', 'actions', external, close)), body, handoff.dialog)
+  main.append(element('div', 'detail-toolbar', back, handoffSlot, toolbarTitle, element('div', 'actions',
+    element('span', 'detail-action-slot', external),
+    closeSlot)), body, handoff.dialog)
   return () => {
     const hasHistory = state.history.length > 0
-    backLabel.textContent = t(hasHistory ? 'Back' : 'Back to tasks')
+    const backLabel = t(hasHistory ? 'Back' : 'Back to tasks')
+    back.setAttribute('aria-label', backLabel)
+    back.title = backLabel
+    const title = state.detail?.title ?? ''
+    toolbarTitle.textContent = title
+    toolbarTitle.title = title
+    closeSlot.hidden = !hasHistory
     close.hidden = !hasHistory
     external.hidden = !state.detail?.url
     handoff.update(state.detail)
-    if (state.detail) body.replaceChildren(...details(state.detail, handoff.open))
+    if (state.detail) body.replaceChildren(...details(state.detail))
     else body.replaceChildren(...(state.busy ? [skeleton('detail', 5)] : []))
-    updateDetailToolbarTitle()
   }
 }
 
@@ -731,7 +721,6 @@ function render() {
     detailTitle = state.detail.id
     main.querySelector<HTMLElement>('.task-title')?.focus({ preventScroll: true })
   }
-  updateDetailToolbarTitle()
   checkPagination()
 }
 

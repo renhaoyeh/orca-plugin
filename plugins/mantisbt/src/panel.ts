@@ -15,6 +15,8 @@ const icons = {
   left: 'm12 5-5 5 5 5',
   up: 'm5 12 5-5 5 5',
   back: 'm9 5-5 5 5 5m-5-5h12',
+  list: 'M3 5h1m3 0h10M3 10h1m3 0h10M3 15h1m3 0h10',
+  play: 'M6 3.5v13l10-6.5-10-6.5Z',
   close: 'm5 5 10 10M15 5 5 15',
   external: 'M11 3h6v6m0-6-7 7m6 1v5a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1h5',
   subtasks: 'M5 3v11a2 2 0 0 0 2 2h3M5 8h5m1-2h5v4h-5zm0 8h5v4h-5z',
@@ -171,26 +173,8 @@ function checkPagination() {
   const remaining = main.scrollHeight - main.scrollTop - main.clientHeight
   if (remaining <= 96) void model.more()
 }
-function updateDetailToolbarTitle() {
-  const toolbar = main.querySelector<HTMLElement>('.detail-toolbar')
-  const title = toolbar?.querySelector<HTMLElement>('.detail-toolbar-title')
-  const back = toolbar?.querySelector<HTMLButtonElement>('.detail-back')
-  const backLabel = toolbar?.querySelector<HTMLElement>('.detail-back-label')
-  const heading = main.querySelector<HTMLElement>('.detail-body .task-title')
-  if (!toolbar || !title || !back || !backLabel) return
-  const label = backLabel.textContent || ''
-  back.setAttribute('aria-label', label)
-  back.title = label
-  const titleText = !state.busy && state.detail && heading ? state.detail.title : ''
-  const show = !!titleText && heading!.getBoundingClientRect().bottom <= toolbar.getBoundingClientRect().bottom + 0.5
-  toolbar.dataset.titleVisible = String(show)
-  title.hidden = !show
-  title.textContent = show ? titleText : ''
-  title.title = show ? titleText : ''
-  backLabel.hidden = show
-}
-main.addEventListener('scroll', () => { checkPagination(); updateDetailToolbarTitle() }, { passive: true })
-window.addEventListener('resize', () => { checkPagination(); updateDetailToolbarTitle() }, { passive: true })
+main.addEventListener('scroll', checkPagination, { passive: true })
+window.addEventListener('resize', checkPagination, { passive: true })
 const paginationResize = new ResizeObserver(checkPagination)
 paginationResize.observe(main)
 document.querySelector('#app')!.append(bar, error, main)
@@ -534,11 +518,8 @@ function issueImages(issueId: string, images: NonNullable<IssueDetail['attachmen
   return element('section', 'widget image-widget', element('h2', 'widget-title', t('Images')), list, dialog)
 }
 
-function details(entry: IssueDetail, handoff: HTMLButtonElement) {
+function details(entry: IssueDetail) {
   const content = element('article', 'detail-content')
-  const title = element('h1', 'task-title', entry.title)
-  title.tabIndex = -1
-  const header = element('div', 'issue-heading', issueId(entry), element('div', 'task-heading', element('div', 'task-heading-title', title), handoff))
   const meta = element('dl', 'metadata')
   for (const field of fieldOptions('detail', entry.customFields ?? [], state.fieldLayout.detail)) {
     if (!field.visible) continue
@@ -553,7 +534,7 @@ function details(entry: IssueDetail, handoff: HTMLButtonElement) {
       meta.append(element('div', 'detail-field', label, cell))
     }
   }
-  content.append(header, meta, element('section', 'description', element('h2', '', t('Description')),
+  content.append(meta, element('section', 'description', element('h2', '', t('Description')),
     element('p', entry.description ? 'body-copy' : 'muted', entry.description || t('No description.'))))
   const related = element('section', 'widget related', element('h2', 'widget-title', t('Relationships')))
   if (entry.parent) {
@@ -723,7 +704,9 @@ function agentHandoff() {
     status, problem,
     element('footer', 'handoff-footer', cancel, start)))
 
-  const open = button('handoff-trigger', async () => {
+  const handoffLabel = t('Start work')
+  const handoffText = element('span', 'toolbar-handoff-label', handoffLabel)
+  const open = button('handoff-trigger toolbar-handoff-trigger', async () => {
     if (dialog.open || starting || !state.detail) return
     ticket = state.detail
     source.textContent = ticket.title
@@ -761,7 +744,9 @@ function agentHandoff() {
       status.textContent = ''
       problem.textContent = translateError(cause instanceof Error ? cause.message : 'Could not find Agents.', locale)
     }
-  }, t('Start work'))
+  }, icon('play'), handoffText)
+  open.title = handoffLabel
+  open.setAttribute('aria-label', handoffLabel)
   open.setAttribute('aria-haspopup', 'dialog')
   return {
     open, dialog,
@@ -773,30 +758,53 @@ function agentHandoff() {
 }
 
 function taskDetail() {
-  const backLabel = element('span')
-  backLabel.className = 'detail-back-label'
-  const back = button('detail-back', () => model.back(), icon('back'), backLabel)
-  const toolbarTitle = element('span', 'detail-toolbar-title')
-  toolbarTitle.hidden = true
-  toolbarTitle.setAttribute('aria-hidden', 'true')
-  const list = button('detail-list', () => model.back(true), t('Issue list'))
+  const backLabel = t(state.history.length ? 'Previous issue' : 'Back to issues')
+  const back = button('detail-back', () => model.back(), icon('back'))
+  back.setAttribute('aria-label', backLabel)
+  back.title = backLabel
+  const toolbarHeading = element('div', 'detail-toolbar-heading')
+  const toolbarIssueId = element('span', 'detail-toolbar-issue-id')
+  const toolbarSeparator = element('span', 'detail-toolbar-separator', '·')
+  toolbarSeparator.setAttribute('aria-hidden', 'true')
+  toolbarSeparator.style.visibility = 'hidden'
+  const toolbarTitle = element('h1', 'detail-toolbar-title task-title')
+  toolbarTitle.tabIndex = -1
+  toolbarHeading.append(toolbarIssueId, toolbarSeparator, toolbarTitle)
+  const listLabel = t('Issue list')
+  const list = button('detail-list', () => model.back(true), icon('list'), element('span', 'detail-list-label', listLabel))
+  list.title = listLabel
+  list.setAttribute('aria-label', listLabel)
   const external = iconButton('external', t('Open original'), () => {
     if (state.detail?.url) openOriginal(state.detail.url)
   })
   const fields = iconButton('settings', t('Field display'), model.openFields)
   fields.dataset.focus = 'open-fields'
   const handoff = agentHandoff()
+  const handoffSlot = element('span', 'detail-action-slot detail-action-slot--handoff', handoff.open)
   const body = element('div', 'detail-body')
-  main.append(element('div', 'detail-toolbar', back, toolbarTitle, element('div', 'actions', list, fields, external)), body, handoff.dialog)
+  main.append(element('div', 'detail-toolbar', back, handoffSlot, toolbarHeading, element('div', 'actions',
+    element('span', 'detail-action-slot detail-action-slot--list', list),
+    element('span', 'detail-action-slot', fields),
+    element('span', 'detail-action-slot', external))), body, handoff.dialog)
+  let renderedIssueKey = ''
   return () => {
-    backLabel.textContent = t(state.history.length ? 'Previous issue' : 'Back to issues')
+    const currentBackLabel = t(state.history.length ? 'Previous issue' : 'Back to issues')
+    back.setAttribute('aria-label', currentBackLabel)
+    back.title = currentBackLabel
+    const issueKey = state.detail ? `${state.detail.id}\u0000${state.detail.url ?? ''}` : ''
+    if (issueKey !== renderedIssueKey) {
+      toolbarIssueId.replaceChildren(...(state.detail ? [issueId(state.detail)] : []))
+      toolbarSeparator.style.visibility = state.detail ? 'visible' : 'hidden'
+      renderedIssueKey = issueKey
+    }
+    toolbarTitle.textContent = state.detail?.title ?? ''
+    toolbarTitle.title = state.detail?.title ?? ''
     list.hidden = !state.history.length
     external.hidden = !state.detail?.url
     fields.disabled = state.busy || !state.project
     handoff.update(state.detail)
-    if (state.detail) body.replaceChildren(...details(state.detail, handoff.open))
+    if (state.detail) body.replaceChildren(...details(state.detail))
     else body.replaceChildren(...(state.busy ? [skeleton('detail', 5)] : []))
-    updateDetailToolbarTitle()
   }
 }
 
@@ -1029,7 +1037,6 @@ function render() {
     detailTitle = state.detail.id
     if (previous !== 'fields') main.querySelector<HTMLElement>('.task-title')?.focus({ preventScroll: true })
   }
-  updateDetailToolbarTitle()
   checkPagination()
 }
 

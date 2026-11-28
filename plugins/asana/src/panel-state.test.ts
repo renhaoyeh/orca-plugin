@@ -68,6 +68,29 @@ test('restores the binding and remembers the list while navigating an open task'
   model.dispose()
 })
 
+test('detail title data is available while direct subtasks load, including on refresh', async () => {
+  const subtaskReleases: (() => void)[] = []
+  const model = createModel({
+    'connection.read': () => bound,
+    'issues.subtasks': () => new Promise<typeof issues.items>(resolve => subtaskReleases.push(() => resolve([]))),
+  })
+  await model.reload()
+  const opening = model.openTask(detail.id)
+  while (!subtaskReleases.length) await new Promise(resolve => setTimeout(resolve, 0))
+  assert.equal(model.state.busy, true)
+  assert.equal(model.state.detail?.title, detail.title)
+  subtaskReleases.shift()!()
+  await opening
+
+  const refreshing = model.refresh()
+  while (!subtaskReleases.length) await new Promise(resolve => setTimeout(resolve, 0))
+  assert.equal(model.state.busy, true)
+  assert.equal(model.state.detail?.title, detail.title)
+  subtaskReleases.shift()!()
+  await refreshing
+  model.dispose()
+})
+
 test('current-task selection follows navigation, Back, list clear, and workspace identity', async () => {
   const model = createModel({ 'connection.read': () => ({ ...bound, workspaceId: 'workspace-a' }) })
   await model.reload()
