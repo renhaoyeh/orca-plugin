@@ -95,7 +95,8 @@ export function createWorker(
       const { value } = await orca.host.call('storage.get', { key: 'bindings.v1' })
       const bindings = value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, Project> : {}
       const tab = (await orca.host.call('storage.get', { key: 'tab' })).value === 'all' ? 'all' : 'mine'
-      return { configured: !!config, url: config?.url ?? '', workspaceId: context?.workspaceId || null, scope, binding: bindings[scope] || null, tab }
+      const showSubtasks = (await orca.host.call('storage.get', { key: 'showSubtasks.v1' })).value !== false
+      return { configured: !!config, url: config?.url ?? '', workspaceId: context?.workspaceId || null, scope, binding: bindings[scope] || null, tab, showSubtasks }
     }
     orca.panels.handle('connection.read', state)
     orca.panels.handle('data.refresh', () => { clearRequests(); return { ok: true as const } })
@@ -133,6 +134,11 @@ export function createWorker(
     orca.panels.handle('view.save', async input => {
       if (!['mine', 'all'].includes(input.tab)) throw Error('Invalid Asana view.')
       await orca.host.call('storage.set', { key: 'tab', value: input.tab })
+      return { ok: true as const }
+    })
+    orca.panels.handle('subtasks.preference.save', async input => {
+      if (typeof input?.enabled !== 'boolean') throw Error('Invalid Show subtasks preference.')
+      await orca.host.call('storage.set', { key: 'showSubtasks.v1', value: input.enabled })
       return { ok: true as const }
     })
     orca.panels.handle('projects.list', input => {

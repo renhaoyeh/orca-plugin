@@ -76,6 +76,18 @@ test('invalid tokens do not overwrite existing credentials and Mine/All preferen
   await worker.deactivate()
 })
 
+test('Show subtasks defaults on and persists its own saved preference', async () => {
+  const host = mockHost({ capabilities, secrets: { 'connection.v1': JSON.stringify({ token: input.token }) } })
+  const worker = await mountWorker({ default: createWorker(() => fake, async () => 'repo-a') }, { host })
+  assert.equal((await worker.request('connection.read')).showSubtasks, true)
+  await worker.request('subtasks.preference.save', { enabled: false })
+  assert.equal((await worker.request('connection.read')).showSubtasks, false)
+  assert.equal(host.data().storage['showSubtasks.v1'], false)
+  await worker.request('subtasks.preference.save', { enabled: true })
+  assert.equal((await worker.request('connection.read')).showSubtasks, true)
+  await worker.deactivate()
+})
+
 function mcpHarness(path: string, makeClient: typeof asanaClient | ((kind: 'asana', config: any) => any) = () => ({ ...fake, detail: async (id: string) => ({ ...exampleDetail, id }) })) {
   const scope = JSON.stringify(['local', path])
   const storage: Record<string, any> = { 'bindings.v1': { [scope]: { id: '12', name: 'Fixture project' } } }

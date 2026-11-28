@@ -4,6 +4,7 @@ import { activityLabel, activityRowPresentation, mergeTaskTimeline } from './act
 import { localeOf, translate, translateError } from './i18n'
 import { sectionTone, fieldTone, dueTone, dateLabel, activityDateLabel, validTimestamp } from './presentation'
 import { createPanelState } from './panel-state'
+import { taskRowsWithSubtasks, type TaskRowNode } from './task-list'
 
 const icons = {
   refresh: 'M16 7a6 6 0 1 0 .5 5M16 3v4h-4',
@@ -113,6 +114,8 @@ const bar = element('header', 'panel-bar', brand, element('div', 'actions', refr
 const error = element('div', 'error')
 error.setAttribute('role', 'alert')
 const main = element('main', 'panel-main')
+let subtaskObserver: IntersectionObserver | undefined
+let subtaskObserverGeneration = 0
 function checkPagination() {
   if (state.busy || state.problem || screen !== 'tasks' || state.tab !== 'all' || !state.next) return
   const remaining = main.scrollHeight - main.scrollTop - main.clientHeight
@@ -142,16 +145,21 @@ const paginationResize = new ResizeObserver(checkPagination)
 paginationResize.observe(main)
 document.querySelector('#app')!.append(bar, error, main)
 
-function taskRow(issue: Issue) {
-  const row = button('task-row', () => {
+function taskRow(issue: Issue, depth = 0) {
+  const isSubtask = depth > 0
+  const inset = 16 + Math.min(depth, 3) * 18
+  const row = button(`task-row${isSubtask ? ' task-row--subtask' : ''}`, () => {
     if (screen === 'tasks') listTask = issue.id
     return model.openTask(issue.id)
   })
+  if (isSubtask) row.style.paddingInlineStart = `${inset}px`
   row.dataset.focus = `task-${issue.id}`
   row.disabled = state.busy
   const name = element('span', 'task-name', issue.title)
   const summary = element('span', 'task-summary', name)
-  row.append(element('span', 'task-state', icon('task')), summary)
+  const taskState = element('span', 'task-state', icon('task'))
+  if (isSubtask) taskState.style.insetInlineStart = `${inset - 3}px`
+  row.append(taskState, summary)
   if (issue.subtasks) {
     const label = t(issue.subtasks === 1 ? '{count} subtask' : '{count} subtasks', { count: issue.subtasks })
     const count = element('span', 'subtask-count', icon('subtasks'), String(issue.subtasks))
@@ -175,13 +183,17 @@ function taskTable() {
   chooser.title = t('Choose Asana project')
   const mine = button('view-button', () => model.selectTab('mine'), t('Mine'))
   const all = button('view-button', () => model.selectTab('all'), t('All'))
-  const viewBar = element('nav', 'view-bar', mine, all)
+  const showSubtasks = button('view-button subtasks-toggle', () => model.toggleShowSubtasks(), t('Show subtasks'))
+  showSubtasks.setAttribute('aria-pressed', String(state.showSubtasks))
+  const viewBar = element('nav', 'view-bar', mine, all, showSubtasks)
   viewBar.setAttribute('aria-label', t('Task views'))
   const more = button('more-button', () => model.more(), t('Retry'))
   main.append(element('div', 'project-header', chooser), viewBar, element('div', 'filters', filter.form), head, rows, more)
   return () => {
     projectLabel.textContent = state.project?.name || t('Choose Asana project')
     chooser.disabled = mine.disabled = all.disabled = more.disabled = state.busy
+    showSubtasks.setAttribute('aria-pressed', String(state.showSubtasks))
+    showSubtasks.title = t('Show subtasks')
     mine.setAttribute('aria-pressed', String(state.tab === 'mine'))
     all.setAttribute('aria-pressed', String(state.tab === 'all'))
     if (filter.input.value !== state.query) filter.input.value = state.query
@@ -195,20 +207,65 @@ function taskTable() {
       if (!groups.has(section)) groups.set(section, [])
       groups.get(section)!.push(issue)
     }
+    const matchesFilter = (issue: Issue) => words.every(word => [issue.title, issue.assignee, issue.section].join(' ').toLowerCase().includes(word))
+    const expandedSections = new Map(Array.from(groups.keys(), section => [section, !!words.length || !state.collapsedSections.has(section)]))
+    const rowTrees = state.showSubtasks
+      ? taskRowsWithSubtasks(groups, state.subtasks, expandedSections, matchesFilter)
+      : new Map(Array.from(groups, ([section, issues]) => [section, issues.map(issue => ({ issue, children: [] }))]))
+    const generation = ++subtaskObserverGeneration
+    subtaskObserver?.disconnect()
     if (state.busy && !state.issues.length) rows.replaceChildren(skeleton('tasks', 5))
     else if (!groups.size) {
       rows.replaceChildren(...(state.problem ? [] : [element('p', 'empty', t(words.length ? 'No tasks match this filter.' : 'No tasks found.'))]))
     } else {
-      rows.replaceChildren(...Array.from(groups, ([section, issues]) => {
-        const expanded = !!words.length || !state.collapsedSections.has(section)
-        const caption = [icon(expanded ? 'down' : 'right'), element('span', '', section || t('No section')), element('span', 'section-count', String(issues.length))]
+      rows.replaceChildren(...Array.from(groups, ([section]) => {
+        const expanded = !!expandedSections.get(section)
+        const visibleRows = rowTrees.get(section) || []
+        if (!visibleRows.length) return null
+        const caption = [icon(expanded ? 'down' : 'right'), element('span', '', section || t('No section')), element('span', 'section-count', String(visibleRows.length))]
         const toggle = button('section-toggle', () => model.toggleSection(section), ...caption)
         toggle.dataset.focus = `section-${section}`
         toggle.setAttribute('aria-expanded', String(expanded))
         const heading = element('h2', 'section-title', words.length ? element('span', 'section-toggle', ...caption) : toggle)
-        const list = element('ul', 'task-list', ...(expanded ? issues.map(issue => element('li', '', taskRow(issue))) : []))
+        const list = element('ul', 'task-list')
+        if (expanded) {
+          const appendRow = (node: TaskRowNode, depth = 0) => {
+            const nested = depth > 0
+            const item = element('li', nested ? 'task-subtask' : '')
+            const parentRow = taskRow(node.issue, depth)
+            item.append(parentRow)
+            list.append(item)
+            if (!nested && state.showSubtasks && (node.issue.subtasks || 0) > 0 && !state.subtasks.has(node.issue.id)) {
+              if (state.subtasksLoading.has(node.issue.id)) {
+                list.append(element('li', 'subtask-message muted', t('Loading subtasks…')))
+              } else if (state.subtasksErrors.has(node.issue.id)) {
+                const retry = button('subtask-retry', () => {
+                  const pending = model.retrySubtasks(node.issue.id)
+                  rows.querySelector<HTMLElement>(`[data-focus="task-${CSS.escape(node.issue.id)}"]`)?.focus({ preventScroll: true })
+                  return pending
+                }, t('Could not load subtasks. Retry.'))
+                list.append(element('li', 'subtask-message', retry))
+              } else {
+                item.dataset.subtaskParent = node.issue.id
+              }
+            }
+            for (const child of node.children) appendRow(child, depth + 1)
+          }
+          for (const node of visibleRows) appendRow(node)
+        }
         return element('section', 'task-section', heading, list)
-      }))
+      }).filter((section): section is HTMLElement => !!section))
+      if (state.showSubtasks && typeof IntersectionObserver !== 'undefined') {
+        subtaskObserver = new IntersectionObserver(entries => {
+          if (generation !== subtaskObserverGeneration || screen !== 'tasks' || !state.showSubtasks) return
+          for (const entry of entries) {
+            if (!entry.isIntersecting) continue
+            const parent = (entry.target as HTMLElement).dataset.subtaskParent
+            if (parent && !state.subtasks.has(parent) && !state.subtasksLoading.has(parent) && !state.subtasksErrors.has(parent)) void model.loadSubtasks(parent)
+          }
+        }, { root: main, rootMargin: '180px 0px' })
+        for (const parent of rows.querySelectorAll<HTMLElement>('[data-subtask-parent]')) subtaskObserver.observe(parent)
+      }
     }
     if (state.busy && state.issues.length) rows.append(element('div', 'pagination-loading', skeleton('tasks')))
   }
@@ -650,6 +707,7 @@ function render() {
   const previous = screen
   const focus = (document.activeElement as HTMLElement | null)?.dataset.focus
   if (next !== screen) {
+    if (screen === 'tasks') { subtaskObserver?.disconnect(); subtaskObserver = undefined }
     if (screen === 'tasks') listScroll = main.scrollTop
     main.replaceChildren()
     main.dataset.screen = next
@@ -678,5 +736,5 @@ function render() {
 }
 
 const workspace = frame.on('workspace.changed', ({ context }) => model.onWorkspace(context?.workspaceId || null))
-window.addEventListener('pagehide', () => { workspace.dispose(); model.dispose(); paginationResize.disconnect() }, { once: true })
+window.addEventListener('pagehide', () => { subtaskObserver?.disconnect(); subtaskObserver = undefined; subtaskObserverGeneration++; workspace.dispose(); model.dispose(); paginationResize.disconnect() }, { once: true })
 void model.reload()

@@ -1,16 +1,17 @@
 import { assert, test, type MockRequests } from 'orca/testing'
 import type { PluginBridgeApi } from 'orca/host'
 import { createPanelState } from './panel-state'
-import { connected, requests, projects, detail } from './fixtures'
+import type { ConnectionState } from './protocol'
+import { connected, requests, projects, detail, issues } from './fixtures'
 
-function createModel(overrides: MockRequests = {}) {
+function createModel(overrides: MockRequests = {}, onChange = () => {}) {
   const handlers: MockRequests = { ...requests, ...overrides }
   const recorded: { name: string; input: unknown }[] = []
   const request = (async (name: keyof typeof handlers, input?: unknown) => {
     recorded.push({ name, input })
     return (handlers[name] as (input: unknown) => unknown)(input)
   }) as PluginBridgeApi['request']
-  return { ...createPanelState(request, () => {}), recorded }
+  return { ...createPanelState(request, onChange), recorded }
 }
 
 const project = projects.items[0]
@@ -126,6 +127,135 @@ test('Mine and All reuse their own pages, while Refresh fetches them again', asy
   assert.deepEqual(model.recorded.filter(({ name }) => name === 'issues.list').map(({ input }) => (input as { tab: string }).tab), ['mine', 'all'])
   await model.refresh()
   assert.equal(model.recorded.filter(({ name }) => name === 'issues.list').length, 3)
+  model.dispose()
+})
+
+test('Show subtasks defaults on, restores saved off state, and persists toggles', async () => {
+  const model = createModel({
+    'connection.read': () => ({ ...bound, showSubtasks: false }),
+    'subtasks.preference.save': () => ({ ok: true }),
+  })
+  await model.reload()
+  assert.equal(model.state.showSubtasks, false)
+  model.toggleShowSubtasks()
+  await new Promise(resolve => setTimeout(resolve, 0))
+  assert.equal(model.state.showSubtasks, true)
+  assert.deepEqual(model.recorded.filter(({ name }) => name === 'subtasks.preference.save').map(({ input }) => input), [{ enabled: true }])
+
+  const defaultModel = createModel({ 'connection.read': () => bound, 'subtasks.preference.save': () => ({ ok: true }) })
+  await defaultModel.reload()
+  assert.equal(defaultModel.state.showSubtasks, true)
+  defaultModel.toggleShowSubtasks()
+  await defaultModel.loadSubtasks('42')
+  assert.equal(defaultModel.recorded.some(({ name }) => name === 'issues.subtasks'), false)
+  model.dispose()
+  defaultModel.dispose()
+})
+
+test('subtask preference writes serialize and failures restore the last saved value', async () => {
+  const releases: (() => void)[] = []
+  const writes: boolean[] = []
+  const model = createModel({
+    'connection.read': () => bound,
+    'subtasks.preference.save': async input => { writes.push(input.enabled); await new Promise<void>(resolve => releases.push(resolve)); return { ok: true as const } },
+  })
+  await model.reload()
+  model.toggleShowSubtasks()
+  model.toggleShowSubtasks()
+  assert.equal(model.state.showSubtasks, true)
+  await new Promise(resolve => setTimeout(resolve, 0))
+  assert.deepEqual(writes, [false])
+  releases.shift()!()
+  await new Promise(resolve => setTimeout(resolve, 0))
+  assert.deepEqual(writes, [false, true])
+  releases.shift()!()
+  await new Promise(resolve => setTimeout(resolve, 0))
+  assert.equal(model.state.showSubtasks, true)
+  model.dispose()
+
+  const failed = createModel({ 'connection.read': () => bound, 'subtasks.preference.save': () => { throw Error('storage unavailable') } })
+  await failed.reload()
+  failed.toggleShowSubtasks()
+  await new Promise(resolve => setTimeout(resolve, 0))
+  assert.equal(failed.state.showSubtasks, true)
+  assert.equal(failed.state.problem, 'storage unavailable')
+  failed.dispose()
+})
+
+test('connection read does not overwrite a user preference changed while it was pending', async () => {
+  let resolveRead!: (value: ConnectionState) => void
+  const model = createModel({
+    'connection.read': () => new Promise<ConnectionState>(resolve => { resolveRead = resolve }),
+    'subtasks.preference.save': () => ({ ok: true }),
+  })
+  const loading = model.reload()
+  model.toggleShowSubtasks()
+  resolveRead({ ...bound, showSubtasks: true })
+  await loading
+  assert.equal(model.state.showSubtasks, false)
+  model.dispose()
+})
+
+test('subtask loads deduplicate, fail without retry loops, and retry explicitly', async () => {
+  let calls = 0
+  const model = createModel({
+    'connection.read': () => bound,
+    'issues.subtasks': () => { calls++; if (calls === 1) throw Error('temporary failure'); return [{ ...issues.items[0], id: '44' }] },
+  })
+  await model.reload()
+  await Promise.all([model.loadSubtasks('42'), model.loadSubtasks('42')])
+  assert.equal(calls, 1)
+  assert.equal(model.state.subtasksErrors.has('42'), true)
+  await model.loadSubtasks('42')
+  assert.equal(calls, 1)
+  await model.retrySubtasks('42')
+  assert.equal(calls, 2)
+  assert.equal(model.state.subtasks.get('42')?.[0].id, '44')
+  model.dispose()
+})
+
+test('subtask requests stay within four concurrent parents', async () => {
+  const releases: ((items: typeof issues.items) => void)[] = []
+  let calls = 0
+  const model = createModel({
+    'connection.read': () => bound,
+    'issues.subtasks': () => { calls++; return new Promise<typeof issues.items>(resolve => releases.push(resolve)) },
+  })
+  await model.reload()
+  const pending = Array.from({ length: 6 }, (_, index) => model.loadSubtasks(String(50 + index)))
+  assert.equal(calls, 4)
+  releases.shift()!([])
+  await new Promise(resolve => setTimeout(resolve, 0))
+  assert.equal(calls, 5)
+  for (const release of releases.splice(0)) release([])
+  await new Promise(resolve => setTimeout(resolve, 0))
+  for (const release of releases.splice(0)) release([])
+  await Promise.all(pending)
+  model.dispose()
+})
+
+test('refresh invalidates an in-flight subtask result and pagination remains independent', async () => {
+  let release!: (items: typeof issues.items) => void
+  let pageCalls = 0
+  let updates = 0
+  const model = createModel({
+    'connection.read': () => bound,
+    'issues.list': () => { pageCalls++; return pageCalls === 1 ? { items: issues.items, next: 'cursor-1' } : { items: [{ ...issues.items[1], id: '45' }], next: null } },
+    'issues.subtasks': () => new Promise<typeof issues.items>(resolve => { release = resolve }),
+  }, () => { updates++ })
+  await model.reload()
+  const pending = model.loadSubtasks('42')
+  assert.equal(model.state.busy, false)
+  await model.more()
+  assert.deepEqual(model.state.issues.map(issue => issue.id), ['42', '43', '45'])
+  const refresh = model.refresh()
+  while (!release) await new Promise(resolve => setTimeout(resolve, 0))
+  await refresh
+  const settledUpdates = updates
+  release([{ ...issues.items[0], id: '44' }])
+  await pending
+  assert.equal(model.state.subtasks.has('42'), false)
+  assert.equal(updates, settledUpdates)
   model.dispose()
 })
 

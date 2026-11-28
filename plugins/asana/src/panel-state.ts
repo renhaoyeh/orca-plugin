@@ -6,6 +6,7 @@ export function createPanelState(request: PluginBridgeApi['request'], changed: (
     config: null as ConnectionState | null, settings: false, busy: false, problem: '', paginationFailed: false, status: '',
     token: '', projects: [] as Project[], project: null as Project | null, picker: true, projectQuery: '',
     issues: [] as Issue[], next: null as string | null, query: '', tab: 'mine' as 'mine' | 'all',
+    showSubtasks: true, subtasks: new Map<string, Issue[]>(), subtasksLoading: new Set<string>(), subtasksErrors: new Map<string, string>(),
     detailId: '', detail: null as IssueDetail | null, children: [] as Issue[],
     history: [] as { detail: IssueDetail; children: Issue[] }[],
     collapsedSections: new Set<string>(),
@@ -17,6 +18,66 @@ export function createPanelState(request: PluginBridgeApi['request'], changed: (
   let pendingSearch = false
   let pendingSave = false
   let workspaceChanged = false
+  let preferenceWrite = 0
+  let savedShowSubtasks = true
+  let preferencePending = false
+  let preferenceQueue = Promise.resolve()
+  let subtaskEpoch = 0
+  let activeSubtaskLoads = 0
+  const subtaskQueue: { id: string; project: string; epoch: number; resolve: () => void }[] = []
+  const subtaskInflight = new Map<string, Promise<void>>()
+  function clearSubtaskState() {
+    subtaskEpoch++
+    for (const job of subtaskQueue.splice(0)) {
+      subtaskInflight.delete(`${job.epoch}\0${job.project}\0${job.id}`)
+      job.resolve()
+    }
+    state.subtasks.clear()
+    state.subtasksLoading.clear()
+    state.subtasksErrors.clear()
+    changed()
+  }
+  function pumpSubtasks() {
+    while (activeSubtaskLoads < 4 && subtaskQueue.length) {
+      const job = subtaskQueue.shift()!
+      if (job.epoch !== subtaskEpoch || job.project !== state.project?.id) continue
+      activeSubtaskLoads++
+      const key = `${job.epoch}\0${job.project}\0${job.id}`
+      void (async () => {
+        let changedCurrent = false
+        try {
+          const items = await request('issues.subtasks', { id: job.id })
+          if (job.epoch === subtaskEpoch && job.project === state.project?.id) { state.subtasks.set(job.id, items); changedCurrent = true }
+        } catch (error) {
+          if (job.epoch === subtaskEpoch && job.project === state.project?.id) { state.subtasksErrors.set(job.id, error instanceof Error ? error.message : 'Could not load subtasks.'); changedCurrent = true }
+        } finally {
+          if (job.epoch === subtaskEpoch && job.project === state.project?.id) { state.subtasksLoading.delete(job.id); changedCurrent = true }
+          activeSubtaskLoads--
+          subtaskInflight.delete(key)
+          job.resolve()
+          if (changedCurrent) changed()
+          pumpSubtasks()
+        }
+      })()
+    }
+  }
+  function loadSubtasks(id: string, retry = false) {
+    const project = state.project?.id
+    if (!state.showSubtasks || !project || state.subtasks.has(id)) return Promise.resolve()
+    const key = `${subtaskEpoch}\0${project}\0${id}`
+    const existing = subtaskInflight.get(key)
+    if (existing) return existing
+    if (state.subtasksErrors.has(id) && !retry) return Promise.resolve()
+    if (retry) state.subtasksErrors.delete(id)
+    state.subtasksLoading.add(id)
+    changed()
+    let resolve!: () => void
+    const pending = new Promise<void>(done => { resolve = done })
+    subtaskInflight.set(key, pending)
+    subtaskQueue.push({ id, project, epoch: subtaskEpoch, resolve })
+    pumpSubtasks()
+    return pending
+  }
   function persistSelection(id: string | null) {
     const { workspaceId, scope, binding } = state.config || {}
     const project = state.project?.id
@@ -96,6 +157,7 @@ export function createPanelState(request: PluginBridgeApi['request'], changed: (
 
   function bindProject(project: Project) {
     if (state.project?.id === project.id) { patch({ picker: false }); return }
+    clearSubtaskState()
     return run(async current => {
       const saved = await request('project.bind', { scope: state.config?.scope || 'source:asana', id: project.id })
       if (!current()) return
@@ -158,6 +220,7 @@ export function createPanelState(request: PluginBridgeApi['request'], changed: (
       const oldConfig = state.config
       const saved = await request('connection.save', { url: '', token: state.token })
       if (!current()) return
+      clearSubtaskState()
       cache.clear()
       const settings = !!oldConfig?.configured && state.settings
       patch({
@@ -181,13 +244,19 @@ export function createPanelState(request: PluginBridgeApi['request'], changed: (
   }
 
   function reload(force = false) {
+    clearSubtaskState()
     return run(async current => {
       workspaceChanged = false
+      const preferenceVersion = preferenceWrite
+      const preferencePendingAtStart = preferencePending
       const saved = await request('connection.read')
       if (!current()) return
+      const preservePreference = preferencePendingAtStart || preferenceWrite !== preferenceVersion
+      const showSubtasks = preservePreference ? state.showSubtasks : saved.showSubtasks !== false
+      if (!preservePreference) savedShowSubtasks = showSubtasks
       if (!force && state.config?.scope === saved.scope && state.config?.configured === saved.configured
         && state.project?.id === saved.binding?.id && state.tab === (saved.tab ?? 'mine')) {
-        patch({ config: saved })
+        patch({ config: saved, showSubtasks })
         // Same-project workspace changes preserve the visible detail; associate
         // that displayed task with the newly resolved workspace snapshot.
         persistSelection(state.detailId || null)
@@ -198,7 +267,7 @@ export function createPanelState(request: PluginBridgeApi['request'], changed: (
       cache.clear()
       patch({
         config: saved, settings: !saved.configured, token: '', status: '', project: saved.binding ?? null,
-        tab: saved.tab ?? 'mine', picker: !saved.binding, projects: [], projectQuery: '',
+        tab: saved.tab ?? 'mine', showSubtasks, picker: !saved.binding, projects: [], projectQuery: '',
         detailId: '', detail: null, issues: [], next: null, query: '', children: [], history: [], collapsedSections: new Set(),
       })
       // The panel restores its project and task list, not an old detail view. Clear
@@ -225,6 +294,7 @@ export function createPanelState(request: PluginBridgeApi['request'], changed: (
   }
 
   function disconnect() {
+    clearSubtaskState()
     return run(async current => {
       persistSelection(null)
       clearTimeout(saveTimer)
@@ -242,16 +312,35 @@ export function createPanelState(request: PluginBridgeApi['request'], changed: (
     state, reload, onWorkspace, chooseProject, bindProject, searchProjects, selectTab, openTask, back,
     toggleSettings, editToken, saveToken, disconnect,
     setQuery: (query: string) => patch({ query }),
+    loadSubtasks,
+    retrySubtasks: (id: string) => loadSubtasks(id, true),
+    toggleShowSubtasks() {
+      const enabled = !state.showSubtasks
+      const write = ++preferenceWrite
+      preferencePending = true
+      if (!enabled) clearSubtaskState()
+      patch({ showSubtasks: enabled })
+      preferenceQueue = preferenceQueue.catch(() => {}).then(async () => {
+        await request('subtasks.preference.save', { enabled })
+        savedShowSubtasks = enabled
+        if (write === preferenceWrite) preferencePending = false
+      }).catch(error => {
+        if (write !== preferenceWrite) return
+        preferencePending = false
+        if (!savedShowSubtasks) clearSubtaskState()
+        patch({ showSubtasks: savedShowSubtasks, problem: error instanceof Error ? error.message : 'Could not save the Show subtasks preference.' })
+      })
+    },
     toggleSection(section: string) {
       if (!state.collapsedSections.delete(section)) state.collapsedSections.add(section)
       changed()
     },
-    refresh: () => run(async current => {
+    refresh: () => { clearSubtaskState(); return run(async current => {
       await request('data.refresh')
       if (!current()) return
       cache.clear()
       await loadCurrent(current)
-    }),
+    }) },
     more: () => run(async current => {
       patch({ paginationFailed: false })
       try { await loadIssues(current, true) }
@@ -262,6 +351,7 @@ export function createPanelState(request: PluginBridgeApi['request'], changed: (
       clearTimeout(saveTimer)
       pendingSearch = false
       pendingSave = false
+      clearSubtaskState()
       if (state.token.trim() && !state.busy) void request('connection.save', { url: '', token: state.token }).catch(() => {})
       generation++
     },
