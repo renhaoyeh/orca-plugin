@@ -32,7 +32,7 @@ type AsanaClient = {
   projects(cursor: null, query: string): Promise<Page<Project>>
   projectInfo(id: string): Promise<Project>
   issues(project: string, cursor: string | null, scope: 'mine' | 'all'): Promise<Page<Issue>>
-  detail(id: string, project?: string, options?: { includeAllComments?: boolean; includeImages?: boolean }): Promise<IssueDetail>
+  detail(id: string, project?: string, options?: { includeAllComments?: boolean; includeImages?: boolean; includeAuthorPhotos?: boolean }): Promise<IssueDetail>
   subtasks(id: string): Promise<Issue[]>
   image(id: string): Promise<string>
 }
@@ -141,7 +141,7 @@ export function createWorker(
     })
     orca.panels.handle('issues.subtasks', input => subtasks.load(input.id, async () => (await api()).subtasks(input.id)))
     orca.panels.handle('issues.detail', input => details.load(JSON.stringify([input.project, input.id]),
-      async () => (await api()).detail(input.id, input.project), detail => !detail.commentsError && !detail.images?.length))
+      async () => (await api()).detail(input.id, input.project, { includeAuthorPhotos: true }), detail => !detail.commentsError && !detail.images?.length))
     orca.panels.handle('tasks.selection.save', async input => {
       if (typeof input?.workspaceId !== 'string' || typeof input.scope !== 'string' || !validId(input.project) || (input.id !== null && !validId(input.id))) throw Error('Invalid Asana task selection.')
       const queueKey = selectionQueueKey(input.workspaceId, input.scope, input.project)
@@ -202,7 +202,7 @@ export function createWorker(
         if (!validId(selected) || !validId(bound.id)) throw Error('The saved Asana task or project ID is invalid.')
         const config = await saved()
         if (!config) throw Error('Connect an Asana API token first.')
-        const detail = await makeClient('asana', config).detail(selected, bound.id, { includeAllComments: true, includeImages: false })
+        const detail = await makeClient('asana', config).detail(selected, bound.id, { includeAllComments: true, includeImages: false, includeAuthorPhotos: false })
         await selectionWrites.get(queueKey)?.catch(() => {})
         const [latest, latestBindings, currentConfig] = await Promise.all([
           orca.host.call('storage.get', { key }), orca.host.call('storage.get', { key: 'bindings.v1' }), saved(),

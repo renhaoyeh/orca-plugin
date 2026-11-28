@@ -75,8 +75,9 @@ export async function taskDetails(token, gid, project, request = fetch) {
 const subtypeFallback = subtype => subtype.replace(/[_-]+/g, ' ').replace(/\b\w/g, letter => letter.toUpperCase()).slice(0, 240) || 'Activity';
 
 // Traverse the full task story feed once; comments retain their existing feed order.
-export async function taskActivity(token, gid, request = fetch) {
-  const stories = await asanaList(offset => asanaApi.listStories(token, gid, { limit: 100, opt_fields: 'resource_subtype,text,created_at,created_by.name,created_by.gid', offset }, request));
+export async function taskActivity(token, gid, request = fetch, includeAuthorPhotos = false) {
+  const authorFields = includeAuthorPhotos ? ',created_by.photo.image_36x36' : '';
+  const stories = await asanaList(offset => asanaApi.listStories(token, gid, { limit: 100, opt_fields: `resource_subtype,text,created_at,created_by.name,created_by.gid${authorFields}`, offset }, request));
   const comments = [], activities = [];
   for (const story of stories) {
     const subtype = typeof story.resource_subtype === 'string' ? story.resource_subtype.trim() : '';
@@ -84,11 +85,14 @@ export async function taskActivity(token, gid, request = fetch) {
     const text = typeof story.text === 'string' ? story.text.trim() : '';
     const author = story.created_by?.name || 'Someone';
     const authorGid = story.created_by?.gid || null;
+    const authorPhotoUrl = typeof story.created_by?.photo?.image_36x36 === 'string' ? story.created_by.photo.image_36x36 : '';
+    const authorNamed = typeof story.created_by?.name === 'string' && !!story.created_by.name.trim();
+    const authorIdentified = !!story.created_by && (!!authorGid || !!story.created_by.name || !!authorPhotoUrl);
     const at = story.created_at || null;
     if (subtype === 'comment_added') {
-      if (text) comments.push({ gid: story.gid, author, authorGid, text, at });
+      if (text) comments.push({ gid: story.gid, author, authorGid, authorIdentified, authorNamed, authorPhotoUrl, text, at });
     } else {
-      activities.push({ gid: story.gid, subtype, author, authorGid, at, text, fallback: subtypeFallback(subtype) });
+      activities.push({ gid: story.gid, subtype, author, authorGid, authorIdentified, authorNamed, authorPhotoUrl, at, text, fallback: subtypeFallback(subtype) });
     }
   }
   return { comments, activities };

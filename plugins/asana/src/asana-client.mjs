@@ -10,6 +10,34 @@ const task = item => ({
   parent: item.parent && typeof item.parent === 'object' ? { id: item.parent.gid, title: item.parent.name } : null,
 })
 const id = value => { if (!/^\d+$/.test(String(value))) throw Error('Invalid Asana ID.'); return String(value) }
+const photoHostAllowed = host => host === 'asanausercontent.com' || host.endsWith('.asanausercontent.com')
+async function authorPhoto(urlValue, request, signal) {
+  let url
+  try { url = new URL(urlValue) } catch { return '' }
+  if (url.protocol !== 'https:' || (url.port && url.port !== '443') || url.username || url.password || !photoHostAllowed(url.hostname.toLowerCase())) return ''
+  try {
+    const response = await request(url.href, { signal, redirect: 'manual', referrerPolicy: 'no-referrer' })
+    const mime = response.headers.get('content-type')?.split(';')[0]?.trim().toLowerCase() || ''
+    const maxBytes = 96 * 1024
+    if (!response.ok || response.status >= 300 || !response.body || mime !== 'image/png' || Number(response.headers.get('content-length')) > maxBytes) {
+      await response.body?.cancel()
+      return ''
+    }
+    const chunks = []
+    let size = 0
+    const reader = response.body.getReader()
+    try {
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        size += value.byteLength
+        if (size > maxBytes) { await reader.cancel(); return '' }
+        chunks.push(value)
+      }
+    } finally { reader.releaseLock() }
+    return `data:image/png;base64,${Buffer.concat(chunks).toString('base64')}`
+  } catch { return '' }
+}
 async function taskImages(token, gid, request) {
   const images = []
   let offset
@@ -86,19 +114,45 @@ export function asanaClient(_kind, config, request = fetch) {
       if (!item || item.completed) throw Error('This task was completed or deleted in Asana.')
       let comments = [], activities = [], commentsError = '', activitiesError = ''
       const imagesRequest = options.includeImages === false ? Promise.resolve([]) : taskImages(token, gid, request).catch(() => [])
-      try { ({ comments, activities } = await source.taskActivity(token, gid, request)) } catch {
-        commentsError = 'Comments could not be loaded. Refresh to retry.'
-        activitiesError = 'Activities could not be loaded. Refresh to retry.'
+      try { ({ comments, activities } = await source.taskActivity(token, gid, request, options.includeAuthorPhotos === true)) }
+      catch (error) {
+        if (options.includeAuthorPhotos === true && /Asana API request failed \(400\)/.test(error?.message || '')) {
+          try { ({ comments, activities } = await source.taskActivity(token, gid, request, false)) }
+          catch { commentsError = 'Comments could not be loaded. Refresh to retry.'; activitiesError = 'Activities could not be loaded. Refresh to retry.' }
+        } else {
+          commentsError = 'Comments could not be loaded. Refresh to retry.'
+          activitiesError = 'Activities could not be loaded. Refresh to retry.'
+        }
       }
       const displayedComments = options.includeAllComments ? comments.slice(-30) : comments.slice(0, 30)
       const displayedActivities = activities.slice(-30)
+      if (options.includeAuthorPhotos === true) {
+        const photoUrls = new Map()
+        for (const item of [...displayedComments, ...displayedActivities]) {
+          const photoKey = item.authorGid || item.authorPhotoUrl
+          if (photoKey && item.authorPhotoUrl && !photoUrls.has(photoKey) && photoUrls.size < 60) photoUrls.set(photoKey, item.authorPhotoUrl)
+        }
+        const photos = new Map()
+        const photoEntries = [...photoUrls]
+        const signal = AbortSignal.timeout(2500)
+        let nextPhoto = 0
+        await Promise.all(Array.from({ length: Math.min(6, photoEntries.length) }, async () => {
+          while (!signal.aborted) {
+            const index = nextPhoto++
+            if (index >= photoEntries.length) return
+            const [userId, url] = photoEntries[index]
+            photos.set(userId, await authorPhoto(url, request, signal))
+          }
+        }))
+        for (const item of [...displayedComments, ...displayedActivities]) item.authorPhoto = photos.get(item.authorGid || item.authorPhotoUrl) || ''
+      }
       const commentsTruncated = comments.length > 30 || comments.some(item => item.text.length > 1500)
       const activitiesTruncated = activities.length > 30 || activities.some(item => item.text.length > 1500)
       return { ...task(item), images: await imagesRequest, description: item.notes.slice(0, 16000),
         descriptionHtml: item.htmlNotes.length <= 64_000 && item.notes.length <= 16_000 ? item.htmlNotes : '',
-        comments: displayedComments.map(item => ({ id: item.gid, author: item.author, text: item.text.slice(0, 1500), at: item.at })), commentsError,
+        comments: displayedComments.map(item => ({ id: item.gid, author: item.author, authorId: item.authorGid, authorIdentified: item.authorIdentified, authorNamed: item.authorNamed, authorPhoto: item.authorPhoto || '', text: item.text.slice(0, 1500), at: item.at })), commentsError,
         activities: displayedActivities.map(item => ({ id: item.gid, subtype: item.subtype, author: item.author, at: item.at,
-          text: item.text.slice(0, 1500), fallback: item.fallback })), activitiesError,
+          authorId: item.authorGid, authorIdentified: item.authorIdentified, authorNamed: item.authorNamed, authorPhoto: item.authorPhoto || '', text: item.text.slice(0, 1500), fallback: item.fallback })), activitiesError,
         commentsTruncated, activitiesTruncated,
         truncated: item.notes.length > 16000 || commentsTruncated }
     },

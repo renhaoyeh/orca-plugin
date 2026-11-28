@@ -155,3 +155,94 @@ test('system activity truncation is separate from shortened notes and comments',
   assert.equal(detail.commentsTruncated, false)
   assert.equal(detail.truncated, false)
 })
+
+test('sidebar details fetch bounded Asana profile photos while MCP details stay image-free', async () => {
+  const photoRequests = []
+  let includePhotos = false
+  const api = asanaClient('asana', { token: 'private-token' }, async (value, options = {}) => {
+    const url = new URL(value)
+    if (url.pathname.endsWith('/stories')) {
+      assert.equal(url.searchParams.has('opt_fields') && url.searchParams.get('opt_fields').includes('created_by.photo.image_36x36'), includePhotos)
+      return json({ data: [
+        { gid: 'c1', resource_subtype: 'comment_added', text: 'A comment', created_by: { gid: '7', name: 'Alex Lee', photo: { image_36x36: 'https://cdn.asanausercontent.com/alex.png?signature=signed' } } },
+        { gid: 'e1', resource_subtype: 'assigned', text: 'Alex Lee assigned this task', created_by: { gid: '7', name: 'Alex Lee', photo: { image_36x36: 'https://cdn.asanausercontent.com/alex.png?signature=signed' } } },
+        { gid: 'e2', resource_subtype: 'section_changed', text: 'No image for this author', created_by: { gid: '8', name: 'Jamie', photo: { image_36x36: 'https://attacker.s3.amazonaws.com/photo.png' } } },
+        { gid: 'e3', resource_subtype: 'assigned', text: 'Nonstandard port is rejected', created_by: { gid: '9', name: 'Taylor', photo: { image_36x36: 'https://cdn.asanausercontent.com:8443/photo.png' } } },
+        { gid: 'e4', resource_subtype: 'assigned', text: 'Redirects are rejected', created_by: { gid: '10', name: 'Pat', photo: { image_36x36: 'https://cdn.asanausercontent.com/redirect.png' } } },
+      ] })
+    }
+    if (url.hostname === 'cdn.asanausercontent.com') {
+      photoRequests.push({ url: url.href, options })
+      if (url.pathname.endsWith('/redirect.png')) return new Response(null, { status: 302, headers: { location: 'https://evil.test/photo.png' } })
+      return new Response(Uint8Array.from([137, 80, 78, 71]), { headers: { 'content-type': 'image/png', 'content-length': '4' } })
+    }
+    if (url.pathname.endsWith('/attachments')) return json({ data: [], next_page: null })
+    return json({ data: { ...task('42'), notes: 'Notes', completed: false } })
+  })
+  includePhotos = true
+  const sidebar = await api.detail('42', null, { includeImages: false, includeAuthorPhotos: true })
+  assert.equal(sidebar.comments[0].authorId, '7')
+  assert.equal(sidebar.comments[0].authorIdentified, true)
+  assert.match(sidebar.comments[0].authorPhoto, /^data:image\/png;base64,/)
+  assert.equal(sidebar.activities[0].authorPhoto, sidebar.comments[0].authorPhoto)
+  assert.equal(sidebar.activities[1].authorPhoto, '')
+  assert.equal(sidebar.activities[3].authorPhoto, '')
+  assert.equal(photoRequests.length, 2)
+  assert.equal(photoRequests[0].url, 'https://cdn.asanausercontent.com/alex.png?signature=signed')
+  assert.equal(photoRequests[0].options.redirect, 'manual')
+  assert.equal(photoRequests[0].options.referrerPolicy, 'no-referrer')
+  assert.equal(photoRequests[0].options.headers, undefined)
+  assert.equal(photoRequests[1].options.redirect, 'manual')
+
+  includePhotos = false
+  const mcp = await api.detail('42', null, { includeImages: false, includeAuthorPhotos: false })
+  assert.equal(mcp.comments[0].authorPhoto, '')
+  assert.equal(mcp.activities[0].authorPhoto, '')
+  assert.equal(photoRequests.length, 2)
+})
+
+test('a rejected Asana photo story field retries the same feed without photos', async () => {
+  let storyRequests = 0
+  const api = asanaClient('asana', { token: 'private-token' }, async value => {
+    const url = new URL(value)
+    if (url.pathname.endsWith('/stories')) {
+      storyRequests++
+      if (url.searchParams.get('opt_fields').includes('created_by.photo')) return new Response('{}', { status: 400 })
+      return json({ data: [{ gid: 'comment-1', resource_subtype: 'comment_added', text: 'Still visible', created_by: { name: 'Alex', gid: '7' } }] })
+    }
+    if (url.pathname.endsWith('/attachments')) return json({ data: [], next_page: null })
+    return json({ data: { ...task('42'), notes: '', completed: false } })
+  })
+  const detail = await api.detail('42', null, { includeImages: false, includeAuthorPhotos: true })
+  assert.equal(storyRequests, 2)
+  assert.equal(detail.comments[0].text, 'Still visible')
+  assert.equal(detail.comments[0].authorPhoto, '')
+  assert.equal(detail.commentsError, '')
+})
+
+test('sidebar photos cover all displayed authors with bounded parallel work', async () => {
+  let active = 0, maximum = 0, photoCalls = 0
+  const api = asanaClient('asana', { token: 'private-token' }, async value => {
+    const url = new URL(value)
+    if (url.pathname.endsWith('/stories')) return json({ data: [
+      ...Array.from({ length: 35 }, (_, index) => ({ gid: `comment-${index}`, resource_subtype: 'comment_added', text: 'Comment', created_by: { gid: `commenter-${index}`, name: `Commenter ${index}`, photo: { image_36x36: `https://cdn.asanausercontent.com/${index}.png?sig=abc` } } })),
+      ...Array.from({ length: 35 }, (_, index) => ({ gid: `event-${index}`, resource_subtype: 'assigned', text: 'Event', created_by: { gid: `actor-${index}`, name: `Actor ${index}`, photo: { image_36x36: `https://cdn.asanausercontent.com/event-${index}.png?sig=abc` } } })),
+    ] })
+    if (url.pathname.endsWith('/attachments')) return json({ data: [], next_page: null })
+    if (url.hostname === 'cdn.asanausercontent.com') {
+      photoCalls++
+      active++
+      maximum = Math.max(maximum, active)
+      await new Promise(resolve => setTimeout(resolve, 1))
+      active--
+      return new Response(Uint8Array.from([137, 80, 78, 71]), { headers: { 'content-type': 'image/png', 'content-length': '4' } })
+    }
+    return json({ data: { ...task('42'), notes: '', completed: false } })
+  })
+  const detail = await api.detail('42', null, { includeImages: false, includeAuthorPhotos: true })
+  assert.equal(detail.comments.length, 30)
+  assert.equal(detail.activities.length, 30)
+  assert.equal(photoCalls, 60)
+  assert.ok(maximum <= 6)
+  assert.ok(maximum > 1)
+})

@@ -1,6 +1,6 @@
 import type {} from 'orca/frame'
 import type { Issue, IssueDetail } from './protocol'
-import { activityLabel, mergeTaskTimeline } from './activity'
+import { activityLabel, activityRowPresentation, mergeTaskTimeline } from './activity'
 import { localeOf, translate, translateError } from './i18n'
 import { sectionTone, fieldTone, dueTone, dateLabel, activityDateLabel, validTimestamp } from './presentation'
 import { createPanelState } from './panel-state'
@@ -84,12 +84,20 @@ function skeleton(view: 'tasks' | 'detail' | 'projects', count = 3) {
   return shape
 }
 
-function avatar(name: string, key = name) {
+function avatar(name: string, key = name, photo = '') {
   const initials = name.trim().split(/\s+/).slice(0, 2).map(part => Array.from(part)[0]).join('').toLocaleUpperCase()
-  if (!initials) return element('span', 'avatar avatar--empty', icon('person'))
+  if (!initials && !photo.startsWith('data:image/png;base64,')) return element('span', 'avatar avatar--empty', icon('person'))
   const badge = element('span', 'avatar', initials)
   const hash = Array.from(key || name).reduce((value, char) => (value * 31 + char.codePointAt(0)!) >>> 0, 0)
   badge.style.setProperty('--avatar-color', `var(--avatar-${hash % 8})`)
+  if (photo.startsWith('data:image/png;base64,')) {
+    const image = element('img', 'avatar-photo')
+    image.src = photo
+    image.alt = ''
+    image.referrerPolicy = 'no-referrer'
+    image.addEventListener('error', () => image.remove(), { once: true })
+    badge.append(image)
+  }
   return badge
 }
 
@@ -380,12 +388,19 @@ function details(entry: IssueDetail, handoff: HTMLButtonElement) {
     if (item.kind === 'comment') {
       const author = element('div', 'comment-author', element('strong', '', item.author))
       if (timestamp) author.append(timestamp)
-      timelineList.append(element('li', 'activity-item activity-item--comment', avatar(item.author), element('div', 'comment-body', author, element('p', 'body-copy', item.text))))
+      const commentAvatarName = item.authorNamed === false ? '' : item.author
+      timelineList.append(element('li', 'activity-item activity-item--comment', avatar(commentAvatarName, item.authorId || item.author, item.authorPhoto), element('div', 'comment-body', author, element('p', 'body-copy', item.text))))
     } else {
-      const action = item.text || activityLabel(item.subtype, item.fallback, t)
-      const update = element('div', 'activity-update', element('strong', 'activity-update-author', item.author), element('span', 'activity-update-text', action))
+      const presentation = activityRowPresentation(item)
+      const action = item.text ? presentation.text : activityLabel(item.subtype, presentation.text, t)
+      const update = element('div', 'activity-update')
+      if (presentation.showAuthor) update.append(element('strong', 'activity-update-author', item.author))
+      update.append(element('span', 'activity-update-text', action))
       if (timestamp) update.append(timestamp)
-      timelineList.append(element('li', 'activity-item activity-item--update', element('span', 'activity-update-marker'), update))
+      const leading = presentation.hasAvatar
+        ? avatar(item.authorNamed === false ? '' : item.author, item.authorId || item.author, item.authorPhoto)
+        : element('span', 'activity-update-marker')
+      timelineList.append(element('li', 'activity-item activity-item--update', leading, update))
     }
   }
   if (timeline.length && !activitiesError) activities.append(timelineList)

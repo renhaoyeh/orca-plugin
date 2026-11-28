@@ -1,7 +1,8 @@
 import { assert, test } from 'orca/testing'
-import { activityLabel, mergeTaskTimeline } from './activity'
+import { activityLabel, activityRowPresentation, activityStartsWithAuthor, mergeTaskTimeline } from './activity'
 import { localeOf, translate as translateMessage } from './i18n'
 import { activityDateLabel, validTimestamp } from './presentation'
+import type { TimelineItem } from './activity'
 
 test('merges comments and system stories chronologically with stable ties and missing dates last', () => {
   const timeline = mergeTaskTimeline([
@@ -35,4 +36,19 @@ test('activity timestamps include localized time and preserve malformed values',
   assert.equal(activityDateLabel('not a timestamp', 'en-US'), 'not a timestamp')
   assert.equal(validTimestamp('2026-06-08T09:05:00.000Z'), true)
   assert.equal(validTimestamp('not a timestamp'), false)
+})
+
+test('activity row content uses a source sentence once and omits a synthetic actor', () => {
+  const sentence = { id: 'event', subtype: 'assigned', author: 'Alex Lee', authorId: '7', authorIdentified: true, authorNamed: true, text: 'Alex Lee assigned this task', fallback: 'Assignment changed' }
+  assert.deepEqual(activityRowPresentation(sentence), { hasAvatar: true, showAuthor: false, text: 'Alex Lee assigned this task' })
+  const separate = activityRowPresentation({ ...sentence, text: 'assigned the task to Jamie' })
+  assert.equal(separate.showAuthor, true)
+  const synthetic = activityRowPresentation({ ...sentence, author: 'Someone', authorNamed: false, authorPhoto: '', text: 'The task was updated' })
+  assert.deepEqual(synthetic, { hasAvatar: false, showAuthor: false, text: 'The task was updated' })
+  const photoOnly = activityRowPresentation({ ...sentence, author: 'Someone', authorNamed: false, authorPhoto: 'data:image/png;base64,abc', text: 'The task was updated' })
+  assert.equal(photoOnly.hasAvatar, true)
+  assert.equal(photoOnly.showAuthor, false)
+  assert.equal(activityStartsWithAuthor('Alex Lee assigned this', 'Alex Lee'), true)
+  assert.equal(activityStartsWithAuthor('Alex Leeuwen assigned this', 'Alex Lee'), false)
+  assert.equal(activityStartsWithAuthor('ALEX LEE: assigned this', 'Alex Lee'), true)
 })

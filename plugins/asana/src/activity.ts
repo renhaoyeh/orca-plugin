@@ -1,5 +1,5 @@
-type Comment = { id: string; author: string; text: string; at?: string | null }
-type Activity = { id: string; subtype: string; author: string; text: string; fallback: string; at?: string | null }
+type Comment = { id: string; author: string; authorId?: string | null; authorIdentified?: boolean; authorNamed?: boolean; authorPhoto?: string; text: string; at?: string | null }
+type Activity = { id: string; subtype: string; author: string; authorId?: string | null; authorIdentified?: boolean; authorNamed?: boolean; authorPhoto?: string; text: string; fallback: string; at?: string | null }
 export type TimelineItem = (Comment & { kind: 'comment' }) | (Activity & { kind: 'activity' })
 
 const fallbackKeys: Record<string, string> = {
@@ -13,6 +13,23 @@ const fallbackKeys: Record<string, string> = {
 export function activityLabel(subtype: string, fallback: string, translate: (key: string) => string) {
   const key = Object.hasOwn(fallbackKeys, subtype) ? fallbackKeys[subtype] : undefined
   return key ? translate(key) : fallback || subtype.replace(/[_-]+/g, ' ')
+}
+
+export function activityStartsWithAuthor(text: string, author: string) {
+  if (!text || !author) return false
+  const escaped = author.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  return new RegExp(`^${escaped}(?=$|[^\\p{L}\\p{N}\\p{M}_])`, 'iu').test(text)
+}
+
+export function activityRowPresentation(item: Activity) {
+  const hasPhoto = item.authorPhoto?.startsWith('data:image/png;base64,') === true
+  const named = item.authorNamed === true && item.author !== 'Someone'
+  const sentenceIncludesAuthor = !!item.text && named && activityStartsWithAuthor(item.text, item.author)
+  return {
+    hasAvatar: hasPhoto || named,
+    showAuthor: named && (!item.text || !sentenceIncludesAuthor),
+    text: item.text || item.fallback || item.subtype.replace(/[_-]+/g, ' '),
+  }
 }
 
 export function mergeTaskTimeline(comments: Comment[], activities: Activity[] = []): TimelineItem[] {
